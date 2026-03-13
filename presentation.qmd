@@ -1,0 +1,131 @@
+---
+title: "Data Science Project: Cleaning and Analyzing Used Cars Dataset"
+author: "BAHLAOUI Ahmed, ENNACKHLAOUI AYA, LOGRAINE Wiam"
+subtitle: "Data Cleaning and Analysis"
+
+format:
+  revealjs:
+    theme: default
+    footer: "ENSAM RABAT - 2025/2026"
+    scrollable: true
+---
+
+# The Goal
+
+We set out on a journey to explore a wild dataset of used cars.
+Our ultimate goal? To clean this messy data, uncover its secrets, and eventually build a machine learning model to predict the price of a used car.
+
+Along the way, we had to answer some burning questions...
+
+---
+
+## Chapter 1: The Setup
+
+Before we can answer questions, we need to know what we are dealing with.
+
+```{python}
+#| echo: true
+import pandas as pd
+import numpy as np
+
+# Load the data
+df = pd.read_csv("cars_dataframe.csv")
+print(f"Initial shape: {df.shape}")
+```
+
+It turns out... there's a lot of cleaning to do. Missing values everywhere!
+
+---
+
+## Chapter 2: The Mystery of the Missing Data
+
+**Question:** What do we do with cars that have no price or no doors?
+
+**Answer:** We clean them up! A car without a price is like a story without an ending. 
+
+```{python}
+#| echo: true
+# Drop the unknown prices (our target variable!)
+missing_price_before = df['Price'].isnull().sum()
+df = df.dropna(subset=['Price'])
+print(f"Dropped {missing_price_before} rows missing 'Price'")
+
+# What about missing origins? Fill them!
+df['Origin'] = df['Origin'].fillna('Unknown')
+```
+
+---
+
+## Chapter 3: The Price Enigma
+
+**Question:** What truly drives the price of a used car? Is it the brand? The age?
+
+**Answer:** Let's look at the Brand!
+
+```{python}
+#| echo: true
+#| fig-align: center
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+median_price = df.groupby('Brand')['Price'].median().sort_values(ascending=False).head(15)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x=median_price.values, y=median_price.index, hue=median_price.index, legend=False, palette='viridis')
+plt.title("Top Brands by Median Price")
+plt.xlabel("Median Price")
+plt.show()
+```
+
+Porsche and Land Rover seem to be charging a premium!
+
+---
+
+## Chapter 4: Market Control
+
+**Question:** Who actually controls the used car market? Are buyers preferring manual or automatic?
+
+**Answer:** Automatic takes the lead in average price, but let's see the count.
+
+```{python}
+#| echo: true
+# Gearbox distribution
+gearbox_counts = df['Gearbox'].value_counts()
+print(gearbox_counts)
+```
+
+Manual cars are common, but Automatics demand a higher price!
+
+---
+
+## Chapter 5: Geographic Secrets 🗺️
+
+**Question:** Where are the most expensive cars hiding? Are some locations just inherently pricier?
+
+**Answer:** Rabat and Casablanca hold the high ground.
+
+```{python}
+#| echo: true
+#| fig-align: center
+median_price_loc = df.groupby('Location')['Price'].median().sort_values(ascending=False).head(10)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x=median_price_loc.values, y=median_price_loc.index, hue=median_price_loc.index, legend=False, palette='coolwarm')
+plt.title("Top 10 Locations with Highest Median Prices")
+plt.xlabel("Median Price (MAD)")
+plt.show()
+```
+
+If you're buying in Rabat, bring your wallet!
+
+---
+
+# The Adventure Continues...
+
+We cleaned the missing values.
+We unraveled the relationships between brand, gearboxes, and geography.
+
+**What's next?**
+Preparing this pristine dataset for Machine Learning to predict prices accurately.
+
+Stay tuned...
