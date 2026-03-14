@@ -13,3 +13,4 @@ presentation_*
 
 /.quarto/
 **/*.quarto_ipynb
+*.txt
