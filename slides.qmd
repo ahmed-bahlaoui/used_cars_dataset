@@ -1,6 +1,6 @@
 ---
 title: "The Used Cars Investigation"
-author: "BAHLAOUI Ahmed · ENNACKHLAOUI Aya · LOGRAINE Wiam"
+author: "BAHLAOUI Ahmed · ENNAKHLAOUI Aya · LOGRAINE Wiam"
 subtitle: "A Data-Driven Storytelling Adventure"
 
 format:
@@ -713,7 +713,7 @@ With a **clean**, **well-understood** dataset in hand, the adventure continues:
 
 # Thanks for your attention!
 
-**BAHLAOUI Ahmed · ENNACKHLAOUI AYA · LOGRAINE Wiam**
+**BAHLAOUI Ahmed · ENNAKHLAOUI AYA · LOGRAINE Wiam**
 
 **ENSAM RABAT — 2025/2026**
 
