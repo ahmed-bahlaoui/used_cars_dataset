@@ -14,3 +14,5 @@ presentation_*
 /.quarto/
 **/*.quarto_ipynb
 *.txt
+
+.ipynb_checkpoints
