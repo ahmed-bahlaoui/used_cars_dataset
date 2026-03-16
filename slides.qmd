@@ -301,6 +301,59 @@ assert df['Fiscal Power'].isnull().sum() == 0
 ```
 ---
 
+## We need to handle outliers (unusual or weird datapoints)
+
+> **Problem:** Some cars have absurd prices — the minimum is **1 MAD** and the maximum is about **1.6 Billion MAD**. That's clearly not right!
+
+```{python}
+#| echo: true
+min_price = df.Price.min()
+max_price = df.Price.max()
+print(f"The minimum price is:  {min_price:.2f} MAD")
+print(f"The maximum price is:  {max_price:.2f} MAD")
+```
+
+---
+
+## Fixing the price outliers
+
+> **Strategy:** Replace the placeholder price of 1 MAD with NaN, then clip to the 1st–99th percentile to remove extreme values on both ends.
+
+```{python}
+#| echo: true
+df["Price"] = df["Price"].replace(1, np.nan)
+lower = df["Price"].quantile(0.01)
+upper = df["Price"].quantile(0.99)
+
+df = df[(df["Price"] >= lower) & (df["Price"] <= upper)]
+
+min_price = df.Price.min()
+max_price = df.Price.max()
+print(f"The minimum price is now:  {min_price:.2f} MAD")
+print(f"The maximum price is now:  {max_price:.2f} MAD")
+```
+
+---
+
+## Optional: Removing rare luxury car outliers
+
+> We can remove values that are very high (like those of luxury cars) for better predictions using our machine learning model.
+
+```{python}
+#| echo: true
+### Removing rare luxury cars that can skew model prediction
+upper = df["Price"].quantile(0.99)
+df = df[df["Price"] <= upper]
+
+agg_func = ["min", "max", "mean", "median"]
+series = df.Price.agg(agg_func)
+stats = list(zip(agg_func, series))
+for value in stats:
+    print(f"The {value[0]} value is:  {value[1]:.2f} MAD")
+```
+
+---
+
 ## The Dataset is Now Clean!
 
 ```{python}
@@ -680,8 +733,9 @@ Let's save our squeaky clean dataset before moving on to the next chapter!
 
 ```{python}
 #| echo: true
-df.to_csv("cleaned_data.csv", index=False)
-print("Dataset successfully saved as 'cleaned_data.csv'!")
+filename = "cleaned_data_for_real.csv"
+df.to_csv(filename, index=False, encoding="utf-8")
+print(f"Dataset successfully saved as '{filename}'!")
 ```
 
 

@@ -10,6 +10,9 @@ wheels/
 .venv
 presentation_*
 
+#presentation_files
+slide_files/
+
 
 /.quarto/
 **/*.quarto_ipynb
