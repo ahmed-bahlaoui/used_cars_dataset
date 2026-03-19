@@ -27,10 +27,10 @@ st.title("---Morocco Used Car Price Predictor---")
 st.header("Dataset Overview")
 col_img1, col_img2 = st.columns(2)
 with col_img1:
-    image_path = Path("../figures/fig_02_price_distribution_up_to_95th_percentile.png")
+    image_path = Path("figures/fig_02_price_distribution_up_to_95th_percentile.png")
     st.image(str(image_path), use_column_width=True)
 with col_img2:
-    image_path =Path("../figures/fig_17_correlation_matrix.png")
+    image_path =Path("figures/fig_17_correlation_matrix.png")
     st.image(str(image_path), use_column_width=True)
 
 # --- Prediction Section ---
