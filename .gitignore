@@ -6,12 +6,15 @@ dist/
 wheels/
 *.egg-info
 
+#log files
+*.log
+
 # Virtual environments
 .venv
 presentation_*
 
 #presentation_files
-slide_files/
+slides_files/
 
 
 /.quarto/

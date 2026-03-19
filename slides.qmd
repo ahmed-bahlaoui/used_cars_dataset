@@ -755,15 +755,142 @@ We've uncovered the key drivers of used car prices:
 
 
 
-# What's Next?
+# Part 7: Feature Engineering
+## Encoding Categorical Features
 
-With a **clean**, **well-understood** dataset in hand, the adventure continues:
+Before training, we must convert text to numbers and scale our data!
 
-::: {.incremental}
-- **PCA & Dimensionality Reduction** — Compress features while keeping the signal
-- **Machine Learning Model Training** — Regression to predict `Price`
-- **Model Evaluation** — Which algorithm wins? How accurate can we get?
-:::
+| Column | Strategy |
+|:---|:---|
+| `Brand`, `Model` | Target Encoding (high cardinality) |
+| `Gearbox`, `Fuel`, `Origin` | One-Hot Encoding |
+| `Location`, `Sector` | Drop if too noisy (we omit them) |
+| `FO` (First Owner) | Binary encode (Yes/No → 1/0) |
+| `Condition` | Ordinal encoding |
+
+```{python}
+#| echo: true
+# Example: Encoding First Owner & Condition
+FO_mapping = {"Yes": 1, "No": 0, "Unknown": 0}
+df['FO'] = df['FO'].map(FO_mapping)
+
+df['condition_numeric'] = df['Condition'].map({
+    'For Parts': 0, 'Damaged': 1, 'Fair': 2, 'Good': 3, 
+    'Very Good': 4, 'Excellent': 5, 'New': 6
+})
+```
+
+---
+
+## Handling Mileage and Fiscal Power
+
+Mileage is often a range string. We convert it to a mean integer and drop extreme outliers.
+
+```{python}
+#| echo: true
+import re
+
+def mileage_to_mean(mileage_str):
+    try:
+        if pd.isna(mileage_str): return np.nan
+        mileage_str = mileage_str.replace(" ", "").lower()
+        if "plusde" in mileage_str:
+            return int(re.findall(r"\d+", mileage_str)[0])
+        elif "-" in mileage_str:
+            low, high = mileage_str.split("-")
+            return (int(low) + int(high)) / 2
+        return int(mileage_str)
+    except:
+        return np.nan
+
+df["Mileage_mean"] = df["Mileage"].apply(mileage_to_mean)
+df = df[df["Mileage_mean"] < 400000]
+
+df["Fiscal Power"] = df["Fiscal Power"].astype(str).str.extract(r"(\d+)\s*CV").astype(float)
+```
+
+# Part 8: Machine Learning
+## Building the Pipeline
+
+We predict the **log-transformed** price using a `GradientBoostingRegressor`.
+
+```{python}
+#| echo: true
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder,TargetEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import TargetEncoder
+from sklearn.ensemble import GradientBoostingRegressor
+
+df['Price_log']   = np.log1p(df['Price'])
+df['Mileage_log'] = np.log1p(df['Mileage_mean'])
+
+# Define feature matrix and target
+drop_cols = ['Price', 'Price_log', 'Condition', 'Equipment', 
+             'Mileage', 'Location', 'Sector', 'NoD']
+X = df.drop(columns=drop_cols)
+y = df['Price_log']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+```
+
+---
+
+## Training the Model
+
+We use a `ColumnTransformer` to handle different types of data cleanly.
+
+```{python}
+#| echo: true
+numeric_cols    = ['Year', 'Fiscal Power', 'Mileage_log', 'num_features', 'condition_numeric']
+ohe_cols        = ['Gearbox', 'Fuel', 'Origin']
+target_enc_cols = ['Brand', 'Model']
+
+preprocessor = ColumnTransformer(transformers=[
+    ('num',    StandardScaler(),                          numeric_cols),
+    ('ohe',    OneHotEncoder(drop='first', handle_unknown='ignore'), ohe_cols),
+    ('target', TargetEncoder(target_type='continuous'),   target_enc_cols),
+])
+
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model',        GradientBoostingRegressor(random_state=42))
+])
+
+# Fit on training data
+pipeline.fit(X_train, y_train)
+```
+
+---
+
+## Model Evaluation
+
+How well does our model perform? Let's check the test set metrics:
+
+```{python}
+#| echo: true
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# Predict and convert back to MAD
+y_pred_log = pipeline.predict(X_test)
+y_pred = np.expm1(y_pred_log)
+y_true = np.expm1(y_test)
+
+mae  = mean_absolute_error(y_true, y_pred)
+rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+r2   = r2_score(y_true, y_pred)
+mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+print(f"MAE:  {mae:,.0f} MAD")
+print(f"RMSE: {rmse:,.0f} MAD")
+print(f"R²:   {r2:.4f}")
+print(f"MAPE: {mape:.2f}%")
+```
+
+> **Result:** With an **R² of ~0.85**, our model performs quite well! The Mean Absolute Percentage Error (MAPE) suggests predictions are off by roughly 18% on average.
 
 # Thanks for your attention!
 
