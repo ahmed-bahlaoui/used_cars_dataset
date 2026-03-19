@@ -1,0 +1,901 @@
+---
+title: "The Used Cars Investigation"
+author: "BAHLAOUI Ahmed · ENNAKHLAOUI Aya · LOGRAINE Wiam"
+subtitle: "A Data-Driven Storytelling Adventure"
+
+format:
+  revealjs:
+    theme: default
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    code-block-height: 650px
+    reference-location: document
+    footer: "ENSAM RABAT — INDIA/SD 2025/2026"
+    scrollable: true
+    slide-number: true
+    preview-links: auto
+    chalkboard: false
+    transition: fade
+    highlight-style: arrow
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  fig-align: center
+---
+
+```{python}
+#| include: false
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+np.random.seed(42)
+
+df = pd.read_csv("cars_dataframe.csv")
+```
+
+
+## Abstract
+
+This project was developed by students of **AI/Data Science** at **ENSAM RABAT**, under the valuable supervision of **Professor M. El Yadari**.
+We thank him for the valuable insights we learned from him and we hope to learn more from him in the future.
+
+
+# The Mission Begins...
+
+> *Intuition is thinking that you know without knowing why you do. -Daniel Kahneman*
+
+Our mission — should we choose to accept it — is to:
+
+1. **Clean** this wild, messy dataset
+2. **Explore** its hidden patterns
+3. **Build** a machine learning model to predict used car prices
+
+*Let's follow the data.*
+
+
+## The Dataset at a Glance
+
+Our dataset has **15 columns** — each one a clue:
+
+> *Data Source: We got this dataset from [Mendeley](https://data.mendeley.com/datasets/vjrbcb2rrt/2). On a side note, we thank the people that kindly curated this data for us to work with.*
+
+| Column | What it tells us |
+|---|---|
+| `Brand`, `Model` | Which car it is |
+| `Year`, `Mileage` | How old / used it is |
+| `Price` | What we want to predict |
+| `Condition`, `Gearbox`, `Fuel` | Car characteristics |
+| `Location`, `Origin` | Where it came from |
+| `First Owner`, `Equipment` | Status & extras |
+| `Fiscal Power`, `Sector`, `Number of Doors` | Technical details |
+
+```{python}
+#| echo: true
+rows, cols = df.shape
+print(f"Dataset: {rows:,} rows × {cols} columns")
+```
+
+
+# Part 1: The data
+## Dealing with Missing Data
+
+The first thing any good data scientist does — **investigate the data**.
+
+```{python}
+#| echo: true
+missing = df.isnull().sum()
+percent_missing = (missing.sum() / np.prod(df.shape)) * 100
+print(f"About {percent_missing:.2f}% of the data is missing")
+print(missing[missing > 0])
+```
+
+---
+
+## The Missing Data Map
+
+```{python}
+#| echo: true
+missing_data = df.isnull().sum()
+missing_data = missing_data[missing_data > 0].sort_values(ascending=False)
+
+fig, ax = plt.subplots(figsize=(11, 6))
+missing_data.plot.barh(ax=ax, color='steelblue')
+ax.set_title("Missing Values by Column", fontsize=15)
+ax.set_xlabel("Number of Missing Entries")
+for p in ax.patches:
+    ax.annotate(f"{int(p.get_width()):,}", 
+                (p.get_width(), p.get_y() + p.get_height() / 2),
+                ha='left', va='center', fontsize=10, xytext=(5, 0), textcoords='offset points')
+plt.tight_layout()
+plt.show()
+```
+
+Several columns have missing values. Let's tackle them one by one!
+
+---
+
+## Q: What do we do with cars that have no Price?
+
+> **Answer:** Drop them! `Price` is our target variable — without it, a record is useless.
+
+```{python}
+#| echo: true
+missing_price_before = df['Price'].isnull().sum()
+df = df.dropna(subset=['Price'])
+print(f"Dropped {missing_price_before} rows with missing Price")
+print(f"Remaining rows: {df.shape[0]:,}")
+assert df['Price'].isnull().sum() == 0
+```
+
+---
+
+## Q: What about the Number of Doors?
+
+> **Answer:** We can **infer** it! Cars of the same Brand, Model, and Year almost always share the same door count.
+
+```{python}
+#| echo: true
+def fill_doors(df):
+    col = 'Number of Doors'
+    def group_mode(group_cols):
+        return (
+            df.dropna(subset=[col])
+              .groupby(group_cols)[col]
+              .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
+        )
+    mode_bmy = group_mode(['Brand', 'Model', 'Year'])
+    mode_bm  = group_mode(['Brand', 'Model'])
+    mode_b   = group_mode(['Brand'])
+    overall_mode = df[col].mode().iloc[0]
+
+    def impute(row):
+        if pd.notna(row[col]):
+            return row[col]
+        for key, lookup in [
+            ((row['Brand'], row['Model'], row['Year']), mode_bmy),
+            ((row['Brand'], row['Model']), mode_bm),
+            (row['Brand'], mode_b),
+        ]:
+            try:
+                val = lookup.loc[key]
+                if pd.notna(val): return val
+            except KeyError:
+                pass
+        return overall_mode
+
+    df[col] = df.apply(impute, axis=1)
+    # Ensure the column type is int64
+    df[col] = df[col].astype('int64')
+    return df
+
+df = fill_doors(df)
+print(f"Missing 'Number of Doors' after imputation: {df['Number of Doors'].isnull().sum()}")
+```
+
+**Strategy:** Most specific group first (Brand + Model + Year), then fall back gracefully.
+
+---
+
+## Q: What about the other columns?
+
+| Column | Strategy | Why |
+|---|---|---|
+| `Condition` | **Drop** rows | Can't reliably infer condition |
+| `Origin` | **Fill** → `"Unknown"` | Better than losing the row |
+| `First Owner` | **Fill** → `"Unknown"` | Could be any owner |
+| `Fiscal Power` | **Impute** by Brand+Model+Year | Same car = same engine |
+| `Sector` | **Fill** → `"Unknown"` | Optional metadata |
+| `Brand / Model` | **Drop** the one bad row (#6714) | No way to recover |
+
+```{python}
+#| echo: true
+df = df.dropna(subset=['Condition'])
+df['Origin'] = df['Origin'].fillna('Unknown')
+df['First Owner'] = df['First Owner'].fillna('Unknown')
+df['Sector'] = df['Sector'].fillna('Unknown')
+df = df.drop(index=6714, errors='ignore')
+df.drop_duplicates(inplace=True)
+df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
+df = df.dropna(subset=['Year'])
+df['Year'] = df['Year'].astype(int)
+df = df[~df['Brand'].str.isnumeric()]
+print(f"Clean dataset shape: {df.shape}")
+```
+---
+
+## Q: What about the Location column?
+
+> **Problem:** Some locations are in French whilst others are in Arabic.
+> **Answer:** We need to make this data uniform! Since the majority of the city names are in French, we decided to convert all the Arabic city names to their corresponding French names.
+
+```{python}
+#| echo: true
+city_mapping = {
+    "الدار البيضاء": "Casablanca",
+    "الرباط": "Rabat",
+    "فاس": "Fès",
+    "مراكش": "Marrakech",
+    "طنجة": "Tanger",
+    "أكادير": "Agadir",
+    "وجدة": "Oujda",
+    "القنيطرة": "Kénitra",
+    "تطوان": "Tétouan",
+    "آسفي": "Safi",
+    "الجديدة": "El Jadida",
+    "العرائش": "Larache",
+    "خريبكة": "Khouribga",
+    "بني ملال": "Beni Mellal",
+    "الناظور": "Nador",
+    "العيون": "Laâyoune",
+    "الداخلة": "Dakhla",
+    "المحمدية": "Mohammedia",
+    "مكناس": "Meknès",
+    "تمارة": "Temara"
+}
+
+df["Location"] = df["Location"].map(city_mapping).fillna(df["Location"])
+print(f"Total unique locations after mapping: {df['Location'].nunique()}")
+```
+---
+
+## Q: Should we rename columns?
+
+> **Problem:** Some columns have long names and are cumbersome to work with.
+> **Answer:** To make the dataset easier to work with,
+we could rename columns for easier column selection and more
+intiutive names by just taking the initials
+```{python}
+
+new_names_mapping = {'Number of Doors': 'NoD', 'First Owner': 'FO'}
+df.rename(columns=new_names_mapping, inplace=True)
+
+```
+
+
+## Q: What about fiscal power?
+
+> **Answer:** We can **infer** it! Cars of the same Brand, Model, and Year almost always share the same fiscal power.
+```{python}
+#| echo: true
+def fill_fiscal_power(df):
+    col = 'Fiscal Power'
+    
+    def group_mode(group_cols):
+        return (
+            df.dropna(subset=[col])
+              .groupby(group_cols)[col]
+              .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
+        )
+    
+    mode_bmy = group_mode(['Brand', 'Model', 'Year'])   # most specific
+    mode_bm  = group_mode(['Brand', 'Model'])           # fallback 1
+    mode_b   = group_mode(['Brand'])                    # fallback 2
+    overall_mode = df[col].mode().iloc[0]               # fallback 3
+
+    def impute(row):
+        if pd.notna(row[col]):
+            return row[col]
+        for key, lookup in [
+            ((row['Brand'], row['Model'], row['Year']), mode_bmy),
+            ((row['Brand'], row['Model']), mode_bm),
+            (row['Brand'], mode_b),
+        ]:
+            try:
+                val = lookup.loc[key]
+                if pd.notna(val): return val
+            except KeyError:
+                pass
+        return overall_mode
+
+    df[col] = df.apply(impute, axis=1)
+    return df
+
+df = fill_fiscal_power(df)
+print(f"Missing 'Fiscal Power' after imputation: {df['Fiscal Power'].isnull().sum()}")
+assert df['Fiscal Power'].isnull().sum() == 0
+```
+---
+
+## We need to handle outliers (unusual or weird datapoints)
+
+> **Problem:** Some cars have absurd prices — the minimum is **1 MAD** and the maximum is about **1.6 Billion MAD**. That's clearly not right!
+
+```{python}
+#| echo: true
+min_price = df.Price.min()
+max_price = df.Price.max()
+print(f"The minimum price is:  {min_price:.2f} MAD")
+print(f"The maximum price is:  {max_price:.2f} MAD")
+```
+
+---
+
+## Fixing the price outliers
+
+> **Strategy:** Replace the placeholder price of 1 MAD with NaN, then clip to the 1st–99th percentile to remove extreme values on both ends.
+
+```{python}
+#| echo: true
+df["Price"] = df["Price"].replace(1, np.nan)
+lower = df["Price"].quantile(0.01)
+upper = df["Price"].quantile(0.99)
+
+df = df[(df["Price"] >= lower) & (df["Price"] <= upper)]
+
+min_price = df.Price.min()
+max_price = df.Price.max()
+print(f"The minimum price is now:  {min_price:.2f} MAD")
+print(f"The maximum price is now:  {max_price:.2f} MAD")
+```
+
+---
+
+## Optional: Removing rare luxury car outliers
+
+> We can remove values that are very high (like those of luxury cars) for better predictions using our machine learning model.
+
+```{python}
+#| echo: true
+### Removing rare luxury cars that can skew model prediction
+upper = df["Price"].quantile(0.99)
+df = df[df["Price"] <= upper]
+
+agg_func = ["min", "max", "mean", "median"]
+series = df.Price.agg(agg_func)
+stats = list(zip(agg_func, series))
+for value in stats:
+    print(f"The {value[0]} value is:  {value[1]:.2f} MAD")
+```
+
+---
+
+## The Dataset is Now Clean!
+
+```{python}
+missing_after = df.isnull().sum()
+total_missing = missing_after[missing_after > 0]
+if total_missing.empty:
+    print("Zero missing values remaining!")
+    print(df.info())
+    print(f"We are left with: {df.shape[0]} rows and {df.shape[1]} columns")
+else:
+    print(total_missing)
+```
+
+> *The crime scene has been processed. Now comes the real investigation.*
+
+
+# Part 2: The Price Enigma
+## Q1: What does the price distribution look like?
+
+Is it normal? Skewed? Could it be... hiding outliers?
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+upper = df['Price'].quantile(0.95)
+sns.kdeplot(data=df[df['Price'] <= upper], x='Price', fill=True,
+            color='steelblue', alpha=0.6, ax=axes[0])
+axes[0].set_title('Price Distribution (up to 95th percentile)', fontsize=13)
+axes[0].set_xlabel('Price (MAD)')
+
+sns.kdeplot(data=df, x='Price', fill=True, color='navy', alpha=0.6,
+            ax=axes[1], log_scale=True)
+axes[1].set_title('Price Distribution (Log Scale)', fontsize=13)
+axes[1].set_xlabel('Price (MAD) — log scale')
+
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** The distribution is **heavily left-skewed** — most cars cluster in the affordable range, but luxury outliers shoot the mean upward. Log scale reveals a more symmetric shape.
+
+---
+
+## Q2: Which brands command the highest prices?
+
+```{python}
+brand_counts = df['Brand'].value_counts()
+popular_brands = brand_counts[brand_counts >= 100].index
+df_popular = df[df['Brand'].isin(popular_brands)]
+
+median_price = df_popular.groupby('Brand')['Price'].median().sort_values(ascending=False)
+
+fig, ax = plt.subplots(figsize=(12, 7))
+sns.barplot(x=median_price.values, y=median_price.index,
+            hue=median_price.index, legend=False, palette='viridis', ax=ax)
+ax.set_title('Brands by Median Price (min. 100 listings)', fontsize=15)
+ax.set_xlabel('Median Price (MAD)', fontsize=12)
+ax.set_ylabel('Brand', fontsize=12)
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** **Porsche, Land Rover, and Jaguar** sit comfortably at the top. Unsurprisingly, European luxury brands dominate.
+
+---
+
+## Q3: Does the year affect the price?
+
+> *Intuitively: older car = lower price. But is that always true?*
+
+```{python}
+median_by_year = df.groupby('Year')['Price'].median().reset_index()
+
+fig, ax = plt.subplots(figsize=(14, 5))
+sns.barplot(data=median_by_year, x='Year', y='Price', hue='Year', palette='viridis', legend=False, ax=ax)
+ax.plot(range(len(median_by_year)), median_by_year['Price'], color='black', marker=None, linestyle='-', linewidth=1.5)
+ax.set_title('Median Price by Year', fontsize=15)
+ax.set_xlabel('Year', fontsize=12)
+ax.set_ylabel('Median Price (MAD)', fontsize=12)
+ax.tick_params(axis='x', rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** Yes! The trend is clear — **newer cars command higher prices**, with a strong upward slope from 2010 onward.
+
+---
+
+## Q4: Manual vs. Automatic — Who pays more?
+
+```{python}
+median_price_by_gearbox = df.groupby('Gearbox')['Price'].median().reset_index()
+median_price_by_gearbox = median_price_by_gearbox.sort_values(by='Price', ascending=False)
+
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(data=median_price_by_gearbox, x='Gearbox', y='Price',
+            hue='Gearbox', legend=False, palette='viridis', ax=ax)
+ax.set_title('Median Price by Transmission Type', fontsize=15)
+ax.set_xlabel('Gearbox', fontsize=12)
+ax.set_ylabel('Median Price (MAD)', fontsize=12)
+
+for p in ax.patches:
+    ax.annotate(f"{p.get_height():,.0f} MAD",
+                (p.get_x() + p.get_width() / 2., p.get_height()),
+                ha='center', va='bottom', fontsize=11, xytext=(0, 5),
+                textcoords='offset points')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** **Automatic cars are significantly pricier** — they're often linked to newer, higher-end models.
+
+---
+
+## Q5: Does Condition match our expectations?
+
+> *We expect: Fair < Good < Very Good < Excellent*
+
+```{python}
+median_price_by_condition = df.groupby('Condition')['Price'].median().reset_index()
+condition_order = ['Fair', 'Good', 'Very Good', 'Excellent']
+
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(data=median_price_by_condition, x='Condition', y='Price',
+            hue='Condition', order=condition_order, legend=False, palette='viridis', ax=ax)
+ax.set_title('Median Price by Car Condition', fontsize=15)
+ax.set_xlabel('Condition', fontsize=12)
+ax.set_ylabel('Median Price (MAD)', fontsize=12)
+
+for p in ax.patches:
+    ax.annotate(f"{p.get_height():,.0f} MAD",
+                (p.get_x() + p.get_width() / 2., p.get_height()),
+                ha='center', va='bottom', fontsize=10, xytext=(0, 5),
+                textcoords='offset points')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** Expectations confirmed! Excellent condition cars command the highest price.
+
+
+
+# Part 3: The Market Map
+## Q6: Who dominates the market?
+
+```{python}
+df_plot = df.copy()
+df_plot['Car'] = df_plot['Brand'] + ' ' + df_plot['Model']
+top_5_cars = df_plot['Car'].value_counts().head(5).reset_index()
+top_5_cars.columns = ['Car', 'Count']
+
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(data=top_5_cars, x='Count', y='Car', hue='Car', legend=False, palette='viridis', ax=ax)
+ax.set_title('Top 5 Most Listed Cars', fontsize=15)
+ax.set_xlabel('Number of Listings', fontsize=12)
+ax.set_ylabel('')
+
+for p in ax.patches:
+    ax.annotate(f"{int(p.get_width()):,}",
+                (p.get_width(), p.get_y() + p.get_height() / 2.),
+                ha='left', va='center', fontsize=11, xytext=(5, 0),
+                textcoords='offset points')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** The **Renault Clio and Dacia Logan** lead the pack — affordable, reliable, and everywhere!
+
+---
+
+## Q7: Old cars or New cars?
+
+> *We consider New = After 2020. Old = 2020 and before.*
+
+```{python}
+new_cars = df[df['Year'] > 2020]
+old_cars = df[df['Year'] <= 2020]
+
+df_counts = pd.Series(
+    [new_cars.shape[0], old_cars.shape[0]],
+    index=['New Cars (>2020)', 'Old Cars (≤2020)']
+)
+
+fig, ax = plt.subplots(figsize=(6, 6))
+df_counts.plot.pie(autopct='%1.1f%%',
+    colors=sns.color_palette('viridis', 2), startangle=90, explode=(0.05, 0.05), ax=ax)
+ax.set_ylabel('')
+ax.set_title('Old Cars vs. New Cars in the Market', fontsize=14)
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** The market is dominated by **older cars** — the used car market is truly the domain of pre-2020 vehicles.
+
+---
+
+## Q8: Manual or Automatic?
+
+```{python}
+fig, ax = plt.subplots(figsize=(6, 6))
+df['Gearbox'].value_counts().plot.pie(autopct='%1.1f%%',
+    colors=sns.color_palette('viridis', 2), startangle=90, explode=(0.05, 0.05), ax=ax)
+ax.set_ylabel('')
+ax.set_title('Gearbox Type Distribution', fontsize=14)
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** Manual transmissions **dominate** the used car market in Morocco — automatics remain a premium niche.
+
+
+## Q9: Diesel or Petrol?
+
+```{python}
+## Since Diesel and Petrol are predominant, let's squash the other categories into 'Other' and keep only three categories: Diesel, Petrol and Other
+fuel_counts = df['Fuel'].value_counts()
+fuel_counts['Other'] = fuel_counts[~fuel_counts.index.isin(['Diesel', 'Petrol'])].sum()
+fuel_counts = fuel_counts[['Diesel', 'Petrol', 'Other']]
+
+fig, ax = plt.subplots(figsize=(6, 6))
+fuel_counts.plot.pie(autopct='%1.1f%%',
+    colors=sns.color_palette('viridis', 3), startangle=90, explode=[0.05] * 3, ax=ax)
+ax.set_ylabel('')
+ax.set_title('Fuel Type Distribution', fontsize=14)
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** **Diesel** leads the way — a reflection of Moroccan driving culture where diesel is preferred for long distances and fuel economy.
+
+
+# Part 4: The Geographic Trail
+## Q10: Where are all these cars coming from?
+
+```{python}
+loc_counts = df['Location'].value_counts().head(10)
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(x=loc_counts.values, y=loc_counts.index,
+            hue=loc_counts.index, legend=False, palette='viridis', ax=ax)
+ax.set_title('Top 10 Locations by Number of Listings', fontsize=14)
+ax.set_xlabel('Count')
+ax.set_ylabel('Location')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** **Casablanca** massively leads in listings — Morocco's commercial capital is also its used car capital.
+
+---
+
+## Q11: Where are the most expensive cars?
+
+```{python}
+# First, filter to locations that have at least 100 listings
+threshold = 100
+loc_counts = df['Location'].value_counts()
+popular_locs = loc_counts[loc_counts >= threshold].index
+df_popular_loc = df[df['Location'].isin(popular_locs)]
+
+median_price_loc = df_popular_loc.groupby('Location')['Price'].median().sort_values(ascending=False).head(10)
+
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(x=median_price_loc.values, y=median_price_loc.index,
+            hue=median_price_loc.index, legend=False, palette='viridis', ax=ax)
+ax.set_title(f'Top 10 Locations by Median Price (Min. {threshold} Listings)', fontsize=14)
+ax.set_xlabel('Median Price (MAD)')
+ax.set_ylabel('Location')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** *Location matters!* Some cities command significantly higher median prices — likely reflecting wealthier local buyers.
+
+---
+
+## Q12: Does the Origin affect price?
+
+```{python}
+median_price_origin = df.groupby('Origin')['Price'].median().sort_values(ascending=False)
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(x=median_price_origin.values, y=median_price_origin.index,
+            hue=median_price_origin.index, legend=False, palette='viridis', ax=ax)
+ax.set_title('Median Price by Car Origin', fontsize=14)
+ax.set_xlabel('Median Price (MAD)')
+ax.set_ylabel('Origin')
+##ax.tick_params(axis='y', rotation=45)
+
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** Yes! **Imported and customs-cleared** cars tend to command a premium over locally-registered vehicles.
+
+
+
+# Part 5: The Hidden Factors
+## Q13: Does being First Owner matter?
+
+```{python}
+median_price_owner = df.groupby('FO')['Price'].median().sort_values(ascending=False)
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(x=median_price_owner.values, y=median_price_owner.index,
+            hue=median_price_owner.index, legend=False, palette='viridis', ax=ax)
+ax.set_title('Median Price by First Owner Status', fontsize=14)
+ax.set_xlabel('Median Price (MAD)')
+ax.set_ylabel('First Owner')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** **Yes!** First-owner cars clearly command a premium. Buyers trust a single-owner history.
+
+---
+
+## Q14: What equipment features are most common?
+
+```{python}
+equip_series = df['Equipment'].dropna().str.split(',', expand=True).stack().str.strip().value_counts()
+
+fig, ax = plt.subplots(figsize=(11, 6))
+equip_series.head(20).plot.barh(ax=ax, color='steelblue')
+ax.set_title('Top 20 Equipment Features', fontsize=14)
+ax.set_xlabel('Count')
+ax.set_ylabel('Feature')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** Safety standards rule! **ABS, Airbags, Power Steering, and Air Conditioning** are by far the most listed equipment features.
+
+---
+
+## Q15: Do more features = higher price?
+
+```{python}
+df['num_features'] = df['Equipment'].fillna('').apply(
+    lambda s: len([x for x in s.split(',') if x.strip() != ''])
+)
+corr = df['num_features'].corr(df['Price'])
+print(f"Correlation (# of features vs price): {corr:.3f}")
+
+fig, ax = plt.subplots(figsize=(8, 5))
+sns.scatterplot(data=df, x='num_features', y='Price', alpha=0.2,
+                edgecolor=None, color='steelblue', ax=ax)
+ax.set_title('Price vs Number of Equipment Features', fontsize=14)
+ax.set_xlabel('Number of Features')
+ax.set_ylabel('Price (MAD)')
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** A **positive correlation** exists! More equipped cars do tend to fetch higher prices.
+
+
+# Part 6: The Big Picture
+## Q16: What actually correlates with price?
+
+```{python}
+numeric = df.select_dtypes(include=[np.number])
+corr_matrix = numeric.corr()
+
+plt.figure(figsize=(11, 6))
+sns.heatmap(corr_matrix, cmap='viridis', center=0, annot=True, fmt=".2f",
+            linewidths=0.5, annot_kws={"size": 9})
+plt.title('Correlation Matrix of Numeric Features', fontsize=15)
+plt.tight_layout()
+plt.show()
+```
+
+> **Answer:** `Year` and `Fiscal Power` show the strongest correlations with `Price`. Higher year (newer) and more engine power → higher price.
+
+
+
+# Saving the Cleaned Data
+
+Let's save our squeaky clean dataset before moving on to the next chapter!
+
+```{python}
+#| echo: true
+filename = "cleaned_data_for_real.csv"
+df.to_csv(filename, index=False, encoding="utf-8")
+print(f"Dataset successfully saved as '{filename}'!")
+```
+
+
+# The Story So Far...
+
+We've uncovered the key drivers of used car prices:
+
+| Factor | Effect on Price |
+|---|---|
+| **Brand** | Porsche > Dacia (a lot!) |
+| **Year** | Newer = More expensive |
+| **Condition** | Excellent >> Fair |
+| **Gearbox** | Automatic > Manual |
+| **First Owner** | Significant premium |
+| **Equipment Count** | More features = higher price |
+| **Fiscal Power / Year** | Strongest numeric correlators |
+
+
+
+# Part 7: Feature Engineering
+## Encoding Categorical Features
+
+Before training, we must convert text to numbers and scale our data!
+
+| Column | Strategy |
+|:---|:---|
+| `Brand`, `Model` | Target Encoding (high cardinality) |
+| `Gearbox`, `Fuel`, `Origin` | One-Hot Encoding |
+| `Location`, `Sector` | Drop if too noisy (we omit them) |
+| `FO` (First Owner) | Binary encode (Yes/No → 1/0) |
+| `Condition` | Ordinal encoding |
+
+```{python}
+#| echo: true
+# Example: Encoding First Owner & Condition
+FO_mapping = {"Yes": 1, "No": 0, "Unknown": 0}
+df['FO'] = df['FO'].map(FO_mapping)
+
+df['condition_numeric'] = df['Condition'].map({
+    'For Parts': 0, 'Damaged': 1, 'Fair': 2, 'Good': 3, 
+    'Very Good': 4, 'Excellent': 5, 'New': 6
+})
+```
+
+---
+
+## Handling Mileage and Fiscal Power
+
+Mileage is often a range string. We convert it to a mean integer and drop extreme outliers.
+
+```{python}
+#| echo: true
+import re
+
+def mileage_to_mean(mileage_str):
+    try:
+        if pd.isna(mileage_str): return np.nan
+        mileage_str = mileage_str.replace(" ", "").lower()
+        if "plusde" in mileage_str:
+            return int(re.findall(r"\d+", mileage_str)[0])
+        elif "-" in mileage_str:
+            low, high = mileage_str.split("-")
+            return (int(low) + int(high)) / 2
+        return int(mileage_str)
+    except:
+        return np.nan
+
+df["Mileage_mean"] = df["Mileage"].apply(mileage_to_mean)
+df = df[df["Mileage_mean"] < 400000]
+
+df["Fiscal Power"] = df["Fiscal Power"].astype(str).str.extract(r"(\d+)\s*CV").astype(float)
+```
+
+# Part 8: Machine Learning
+## Building the Pipeline
+
+We predict the **log-transformed** price using a `GradientBoostingRegressor`.
+
+```{python}
+#| echo: true
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder,TargetEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import TargetEncoder
+from sklearn.ensemble import GradientBoostingRegressor
+
+df['Price_log']   = np.log1p(df['Price'])
+df['Mileage_log'] = np.log1p(df['Mileage_mean'])
+
+# Define feature matrix and target
+drop_cols = ['Price', 'Price_log', 'Condition', 'Equipment', 
+             'Mileage', 'Location', 'Sector', 'NoD']
+X = df.drop(columns=drop_cols)
+y = df['Price_log']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+```
+
+---
+
+## Training the Model
+
+We use a `ColumnTransformer` to handle different types of data cleanly.
+
+```{python}
+#| echo: true
+numeric_cols    = ['Year', 'Fiscal Power', 'Mileage_log', 'num_features', 'condition_numeric']
+ohe_cols        = ['Gearbox', 'Fuel', 'Origin']
+target_enc_cols = ['Brand', 'Model']
+
+preprocessor = ColumnTransformer(transformers=[
+    ('num',    StandardScaler(),                          numeric_cols),
+    ('ohe',    OneHotEncoder(drop='first', handle_unknown='ignore'), ohe_cols),
+    ('target', TargetEncoder(target_type='continuous'),   target_enc_cols),
+])
+
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model',        GradientBoostingRegressor(random_state=42))
+])
+
+# Fit on training data
+pipeline.fit(X_train, y_train)
+```
+
+---
+
+## Model Evaluation
+
+How well does our model perform? Let's check the test set metrics:
+
+```{python}
+#| echo: true
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# Predict and convert back to MAD
+y_pred_log = pipeline.predict(X_test)
+y_pred = np.expm1(y_pred_log)
+y_true = np.expm1(y_test)
+
+mae  = mean_absolute_error(y_true, y_pred)
+rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+r2   = r2_score(y_true, y_pred)
+mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+print(f"MAE:  {mae:,.0f} MAD")
+print(f"RMSE: {rmse:,.0f} MAD")
+print(f"R²:   {r2:.4f}")
+print(f"MAPE: {mape:.2f}%")
+```
+
+> **Result:** With an **R² of ~0.85**, our model performs quite well! The Mean Absolute Percentage Error (MAPE) suggests predictions are off by roughly 18% on average.
+
+# Thanks for your attention!
+
+**BAHLAOUI Ahmed · ENNAKHLAOUI AYA · LOGRAINE Wiam**
+
+**ENSAM RABAT — 2025/2026**
+
+**INDIA/SD 2026**

@@ -13,9 +13,11 @@ wheels/
 .venv
 presentation_*
 
-#presentation_files
+# presentation_files
 slides_files/
 
+# Raw data
+data/raw/
 
 /.quarto/
 **/*.quarto_ipynb
