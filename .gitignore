@@ -19,3 +19,7 @@ slide_files/
 *.txt
 
 .ipynb_checkpoints
+
+#IDE specific configs
+.idea
+.vscode
