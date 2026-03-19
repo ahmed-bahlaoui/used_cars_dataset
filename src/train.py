@@ -30,6 +30,7 @@ def train_model(data_path, model_output_path):
     # Drop columns that aren't necessary or are already encoded
     X = df.drop(columns=drop_cols, errors='ignore')
     y = df['Price_log']
+    logger.info(f"Features used: {list(X.columns)} | Prediction variable: {y.name}")
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
