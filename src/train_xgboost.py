@@ -8,6 +8,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
 from loguru import logger
+import joblib
 
 def main():
     # Setup paths
@@ -33,9 +34,9 @@ def main():
     df['Age_x_Mileage'] = df['Age'] * df['Mileage_log']
 
     # Scale numeric features
-    scaler = StandardScaler()
-    cols_to_scale = ['Year', 'Fiscal Power', 'num_features', 'Mileage_log', 'condition_numeric']
-    df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
+    # scaler = StandardScaler()
+    # cols_to_scale = ['Year', 'Fiscal Power', 'num_features', 'Mileage_log', 'condition_numeric']
+    # df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
 
     # Handling outliers
     # Train only on cars under 98th percentile price
@@ -59,7 +60,7 @@ def main():
     target_enc_cols = ['Brand', 'Model']
 
     preprocessor = ColumnTransformer(transformers=[
-        ('num',    'passthrough', numeric_cols),
+        ('num',    StandardScaler(), numeric_cols),
         ('ohe',    OneHotEncoder(drop='first', handle_unknown='ignore'), ohe_cols),
         ('target', TargetEncoder(target_type='continuous'), target_enc_cols),
     ])
@@ -120,6 +121,10 @@ def main():
     model_filename.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(model_filename)
     logger.success(f"Successfully saved model to disk filename {model_filename}")
+
+    preprocessor_filename = PROJECT_ROOT / "models" / "preprocessor.joblib"
+    joblib.dump(preprocessor, preprocessor_filename)
+    logger.success(f"Successfully saved preprocessor to disk filename {preprocessor_filename}")
 
 if __name__ == "__main__":
     main()

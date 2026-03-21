@@ -2,6 +2,7 @@ import streamlit as st
 import joblib, pandas as pd
 import numpy as np
 from pathlib import Path
+from xgboost import XGBRegressor
 
 # Compute the absolute root of the project to reliably find assets
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,11 +16,14 @@ def load_data():
 # Load data to get real categories
 df = load_data()
 
-model_path = BASE_DIR / "models" / "gbr_pipeline.joblib"
-if not model_path.exists():
-    st.error(f"Cannot find model file at {model_path}")
+preprocessor_path = BASE_DIR / "models" / "preprocessor.joblib"
+model_path = BASE_DIR / "models" / "car_price_model.json"
+if not preprocessor_path.exists() or not model_path.exists():
+    st.error(f"Cannot find model files. Please run train_xgboost.py first.")
     st.stop()
-model = joblib.load(model_path)
+preprocessor = joblib.load(preprocessor_path)
+model = XGBRegressor()
+model.load_model(model_path)
 
 st.title("---Morocco Used Car Price Predictor---")
 
@@ -48,16 +52,34 @@ with col1:
     year = st.slider("Year", 1981, 2024, 2018)
     mileage_mean = st.number_input("Mileage (km)", 0.0, 500000.0, 80000.0, step=1000.0)
     
-    fiscal_power = st.number_input("Fiscal Power", 4, 41, 7)
-    num_features = st.slider("Number of Features", 1, 15, 6)
+    # Automatically determine specs based on brand, model and year
+    matching_cars = df[(df['Brand'] == brand) & (df['Model'] == model_name) & (df['Year'] == year)]
+    if matching_cars.empty:
+        matching_cars = df[(df['Brand'] == brand) & (df['Model'] == model_name)]
+        if matching_cars.empty:
+            matching_cars = df[df['Brand'] == brand]
+
+    if not matching_cars.empty:
+        fiscal_power = int(matching_cars['Fiscal Power'].mode()[0])
+        num_features = int(matching_cars['num_features'].mode()[0])
+        gearbox = matching_cars['Gearbox'].mode()[0]
+        fuel = matching_cars['Fuel'].mode()[0]
+    else:
+        fiscal_power, num_features, gearbox, fuel = 7, 6, "Manual", "Diesel"
+            
+    st.info(f"**Auto-Selected Specifications:**\n\n"
+            f"- **Fiscal Power:** {fiscal_power} CV\n"
+            f"- **Features:** {num_features}\n"
+            f"- **Gearbox:** {gearbox}\n"
+            f"- **Fuel Type:** {fuel}")
 
 with col2:
-    gearbox = st.radio("Gearbox", ['Manual', 'Automatic'])
-    fuel = st.selectbox("Fuel Type", ['Diesel', 'Petrol', 'Electrique', 'Hybrid', 'LPG'])
     origin = st.selectbox("Origin", ['Unknown', 'WW in Morocco', 'Customs-cleared car', 'Car not yet customs-cleared', 'Imported New'])
     fo = st.radio("First Owner (1=Yes, 0=No)", [1, 0])
-    condition_numeric = st.slider("Condition (0-6)", 0, 6, 4)
-
+    
+    conditions_list = ["For Parts", "Damaged", "Fair", "Good", "Very Good", "Excellent", "New"]
+    condition_selected = st.selectbox("Condition", conditions_list, index=4) # Default to 'Very Good' map to 4
+    condition_numeric = conditions_list.index(condition_selected)
 
 if st.button("Estimate Price", type="primary"):
     mileage_log = np.log1p(mileage_mean)
@@ -80,7 +102,8 @@ if st.button("Estimate Price", type="primary"):
     X = pd.DataFrame(input_data)
     
     # Predict Log Price and convert back
-    price_pred_log = model.predict(X)[0]
+    X_proc = preprocessor.transform(X)
+    price_pred_log = model.predict(X_proc)[0]
     price = np.expm1(price_pred_log)
     
     st.success(f"### Estimated Price: **{price:,.0f} MAD**")
