@@ -27,6 +27,26 @@ model.load_model(model_path)
 
 st.title("---Morocco Used Car Price Predictor---")
 
+if 'preset' not in st.session_state:
+    st.session_state.preset = "Custom Selection"
+
+def apply_preset():
+    preset = st.session_state.preset
+    if preset != "Custom Selection":
+        brand, model = preset.split(" ", 1)
+        st.session_state.brand_selector = brand
+        st.session_state.model_selector = model
+
+def reset_preset():
+    st.session_state.preset = "Custom Selection"
+
+st.selectbox(
+    "Popular Presets", 
+    ["Custom Selection", "Dacia Logan", "Renault Clio", "Peugeot 208", "Citroen C3", "Dacia Duster"], 
+    key='preset', 
+    on_change=apply_preset
+)
+
 # --- EDA Section ---
 st.header("Dataset Overview")
 col_img1, col_img2 = st.columns(2)
@@ -44,13 +64,16 @@ col1, col2 = st.columns(2)
 
 with col1:
     brands = sorted(df['Brand'].unique().tolist())
-    brand = st.selectbox("Brand", brands)
+    if 'brand_selector' not in st.session_state:
+        st.session_state.brand_selector = brands[0]
+    brand = st.selectbox("Brand", brands, key='brand_selector', on_change=reset_preset)
     
     models_for_brand = sorted(df[df['Brand'] == brand]['Model'].unique().tolist())
-    model_name = st.selectbox("Model", models_for_brand)
+    if 'model_selector' not in st.session_state or st.session_state.model_selector not in models_for_brand:
+        st.session_state.model_selector = models_for_brand[0]
+    model_name = st.selectbox("Model", models_for_brand, key='model_selector', on_change=reset_preset)
     
     year = st.slider("Year", 1981, 2024, 2018)
-    mileage_mean = st.number_input("Mileage (km)", 0.0, 500000.0, 80000.0, step=1000.0)
     
     # Automatically determine specs based on brand, model and year
     matching_cars = df[(df['Brand'] == brand) & (df['Model'] == model_name) & (df['Year'] == year)]
@@ -58,6 +81,13 @@ with col1:
         matching_cars = df[(df['Brand'] == brand) & (df['Model'] == model_name)]
         if matching_cars.empty:
             matching_cars = df[df['Brand'] == brand]
+
+    if not matching_cars.empty and not matching_cars['Mileage_mean'].isna().all():
+        default_mileage = float(matching_cars['Mileage_mean'].median())
+    else:
+        default_mileage = 80000.0
+
+    mileage_mean = st.number_input("Mileage (km)", 0.0, 500000.0, value=default_mileage, step=1000.0)
 
     if not matching_cars.empty:
         fiscal_power = int(matching_cars['Fiscal Power'].mode()[0])
