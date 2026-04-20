@@ -33,11 +33,6 @@ def main():
     # Age × Mileage interaction — an old high-mileage car is much worse
     df['Age_x_Mileage'] = df['Age'] * df['Mileage_log']
 
-    # Scale numeric features
-    # scaler = StandardScaler()
-    # cols_to_scale = ['Year', 'Fiscal Power', 'num_features', 'Mileage_log', 'condition_numeric']
-    # df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
-
     # Handling outliers
     # Train only on cars under 98th percentile price
     q98 = df['Price'].quantile(0.98)
