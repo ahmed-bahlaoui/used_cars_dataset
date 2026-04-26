@@ -19,7 +19,7 @@ slides_files/
 # Raw data
 data/raw/
 
-/.quarto/
+
 **/*.quarto_ipynb
 *.txt
 
