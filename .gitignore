@@ -19,6 +19,7 @@ slides_files/
 # Raw data
 data/raw/
 
+preprocessing/figures/*.png
 
 **/*.quarto_ipynb
 *.txt
