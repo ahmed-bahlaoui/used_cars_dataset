@@ -13,7 +13,10 @@ wheels/
 .venv
 
 claude_slides_files/
+claude_slides_updated_files/
+
 claude_slides.html
+claude_slides_updated.html
 
 # presentation_files
 slides_files/

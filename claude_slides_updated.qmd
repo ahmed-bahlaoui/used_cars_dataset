@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from loguru import logger
 
 np.random.seed(42)
 df = pd.read_csv("cars_dataframe.csv")
@@ -183,7 +184,7 @@ logger.info(f"Remaining rows: {df.shape[0]:,}")
 assert df['Price'].isnull().sum() == 0
 ```
 
-**Why drop instead of impute?** `Price` is the **target variable** — predicting missing prices with the same column we are trying to learn would introduce data leakage and circular bias.
+**Why drop instead of impute?** `Price` is the **target variable**
 
 ---
 
@@ -236,6 +237,7 @@ print(f"Missing 'Number of Doors' after imputation: {df['Number of Doors'].isnul
 ## Applying All Cleaning Steps {.smaller}
 
 ```{python}
+#| code-line-numbers: "|2|5-7|10-12|14-17   "
 #| echo: true
 # Drop rows where condition is missing
 df = df.dropna(subset=['Condition'])
