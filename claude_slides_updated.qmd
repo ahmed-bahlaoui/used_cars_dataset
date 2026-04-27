@@ -234,11 +234,55 @@ print(f"Missing 'Number of Doors' after imputation: {df['Number of Doors'].isnul
 
 ---
 
+## Imputing Fiscal Power {.smaller}
+
+```{python}
+#| echo: true
+def fill_fiscal_power(df):
+    col = 'Fiscal Power'
+    def group_mode(group_cols):
+        return (
+            df.dropna(subset=[col])
+              .groupby(group_cols)[col]
+              .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
+        )
+    mode_bmy = group_mode(['Brand', 'Model', 'Year'])
+    mode_bm  = group_mode(['Brand', 'Model'])
+    mode_b   = group_mode(['Brand'])
+    overall_mode = df[col].mode().iloc[0]
+
+    def impute(row):
+        if pd.notna(row[col]):
+            return row[col]
+        for key, lookup in [
+            ((row['Brand'], row['Model'], row['Year']), mode_bmy),
+            ((row['Brand'], row['Model']), mode_bm),
+            (row['Brand'], mode_b),
+        ]:
+            try:
+                val = lookup.loc[key]
+                if pd.notna(val): return val
+            except KeyError:
+                pass
+        return overall_mode
+
+    df[col] = df.apply(impute, axis=1)
+    return df
+
+df = fill_fiscal_power(df)
+print(f"Missing 'Fiscal Power' after imputation: {df['Fiscal Power'].isnull().sum()}")
+```
+
+**Strategy:** Same hierarchical fallback — Brand+Model+Year → Brand+Model → Brand → overall mode.
+
+---
+
 ## Applying All Cleaning Steps {.smaller}
 
 ```{python}
-#| code-line-numbers: "|2|5-7|10-12|14-17   "
+#| code-line-numbers: "|2|5-7|10-12|14-17"
 #| echo: true
+#| code-fold: show
 # Drop rows where condition is missing
 df = df.dropna(subset=['Condition'])
 
@@ -268,6 +312,7 @@ print(f"Clean dataset shape: {df.shape}")
 
 ```{python}
 #| echo: true
+#| code-fold: show
 city_mapping = {
     "الدار البيضاء": "Casablanca", "الرباط": "Rabat", "فاس": "Fès",
     "مراكش": "Marrakech", "طنجة": "Tanger", "أكادير": "Agadir",
@@ -315,47 +360,9 @@ print(f"Mean: {df.Price.mean():.0f} MAD | Median: {df.Price.median():.0f} MAD")
 
 ```{python}
 #| echo: true
+#| code-fold: show
 new_names_mapping = {'Number of Doors': 'NoD', 'First Owner': 'FO'}
 df.rename(columns=new_names_mapping, inplace=True)
-```
-
-## Imputing Fiscal Power {.smaller}
-
-```{python}
-#| echo: true
-def fill_fiscal_power(df):
-    col = 'Fiscal Power'
-    def group_mode(group_cols):
-        return (
-            df.dropna(subset=[col])
-              .groupby(group_cols)[col]
-              .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
-        )
-    mode_bmy = group_mode(['Brand', 'Model', 'Year'])
-    mode_bm  = group_mode(['Brand', 'Model'])
-    mode_b   = group_mode(['Brand'])
-    overall_mode = df[col].mode().iloc[0]
-
-    def impute(row):
-        if pd.notna(row[col]):
-            return row[col]
-        for key, lookup in [
-            ((row['Brand'], row['Model'], row['Year']), mode_bmy),
-            ((row['Brand'], row['Model']), mode_bm),
-            (row['Brand'], mode_b),
-        ]:
-            try:
-                val = lookup.loc[key]
-                if pd.notna(val): return val
-            except KeyError:
-                pass
-        return overall_mode
-
-    df[col] = df.apply(impute, axis=1)
-    return df
-
-df = fill_fiscal_power(df)
-print(f"Missing 'Fiscal Power' after imputation: {df['Fiscal Power'].isnull().sum()}")
 ```
 
 ---
@@ -363,10 +370,11 @@ print(f"Missing 'Fiscal Power' after imputation: {df['Fiscal Power'].isnull().su
 ## The Dataset is Now Clean! {.smaller}
 
 ```{python}
+#| code-fold: show
 missing_after = df.isnull().sum()
 total_missing = missing_after[missing_after > 0]
 if total_missing.empty:
-    print("✅ Zero missing values remaining!")
+    print("Zero missing values remaining!")
     print(f"Final shape: {df.shape[0]:,} rows × {df.shape[1]} columns")
 else:
     print(total_missing)
