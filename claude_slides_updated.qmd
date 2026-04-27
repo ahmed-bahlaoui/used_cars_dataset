@@ -170,6 +170,23 @@ plt.show()
 
 ---
 
+## Dropping Rows with Missing Price {.smaller}
+
+> Without a `Price`, a row is unusable — it is our target variable.
+
+```{python}
+#| echo: true
+missing_price_before = df['Price'].isnull().sum()
+df = df.dropna(subset=['Price'])
+logger.success(f"Dropped {missing_price_before} rows with missing Price")
+logger.info(f"Remaining rows: {df.shape[0]:,}")
+assert df['Price'].isnull().sum() == 0
+```
+
+**Why drop instead of impute?** `Price` is the **target variable** — predicting missing prices with the same column we are trying to learn would introduce data leakage and circular bias.
+
+---
+
 ## Imputing Number of Doors {.smaller}
 
 > Cars of the same Brand, Model, and Year almost always share the same door count.
