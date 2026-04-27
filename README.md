@@ -57,7 +57,7 @@ quarto preview slides.qmd --no-browser
 
 **Render to static HTML:**
 ```bash
-quarto render slides.qmd --to revealjs --output-dir docs --output index.html --self-contained
+quarto render claude_slides_updated.qmd --to revealjs --output-dir docs --output index.html --self-contained
 ```
 
 ## Project Structure

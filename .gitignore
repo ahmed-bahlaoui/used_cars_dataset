@@ -31,3 +31,4 @@ preprocessing/figures/*.png
 #IDE specific configs
 .idea
 .vscode
+/.quarto/
