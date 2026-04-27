@@ -11,10 +11,12 @@ wheels/
 
 # Virtual environments
 .venv
-presentation_*
+
 
 # presentation_files
 slides_files/
+presentation_*
+claude_*
 
 # Raw data
 data/raw/
