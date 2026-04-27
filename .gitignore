@@ -16,7 +16,7 @@ wheels/
 # presentation_files
 slides_files/
 presentation_*
-claude_*
+
 
 # Raw data
 data/raw/

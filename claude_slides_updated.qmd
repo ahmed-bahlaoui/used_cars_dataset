@@ -1,0 +1,969 @@
+---
+title: "Moroccan Used Car Price Prediction"
+author: "BAHLAOUI Ahmed · ENNAKHLAOUI Aya · LOGRAINE Wiam"
+subtitle: "EDA · Data Cleaning · Machine Learning"
+
+format:
+  revealjs:
+    theme: default
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    code-block-height: 550px
+    reference-location: document
+    footer: "ENSAM RABAT — INDIA/SD · 2025/2026 · Supervised by Pr.Dafrallah & Pr.El Yadari"
+    logo: "logo_ensam.png"
+    scrollable: true
+    slide-number: true
+    preview-links: auto
+    chalkboard: false
+    transition: fade
+    highlight-style: arrow
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  fig-align: center
+---
+
+```{python}
+#| include: false
+import os
+import re
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+np.random.seed(42)
+df = pd.read_csv("cars_dataframe.csv")
+```
+
+## Abstract {.smaller}
+
+This project was developed by students of **AI/Data Science** at **ENSAM RABAT**,
+under the supervision of **Pr. Dafrallah & Pr. El Yadari**.
+
+We thank them for the valuable insights we gained, and we hope to keep learning from them.
+
+> *"Data-driven decisions require data-driven preparation."*
+
+Our pipeline, from start to finish:
+
+| Step | Description |
+|:---|:---|
+| 🔍 **EDA** | Understand the data before touching it |
+| 🧹 **Cleaning** | Handle missing values, outliers, encoding |
+| ⚙️ **Feature Engineering** | Create and select meaningful signals |
+| 🤖 **Modeling** | Train & compare Ridge, Lasso, Random Forest, XGBoost |
+| 📊 **Evaluation** | Metrics, visualizations, model comparison |
+
+
+# Why This Dataset?
+
+> *The Moroccan used car market: large, growing, and opaque.*
+
+---
+
+## The Moroccan Context {.smaller}
+
+Morocco's used car market is one of the most active in the Maghreb region, with hundreds of thousands of listings online each year.
+
+**Key problems:**
+
+- No standardized public pricing reference
+- Buyers and sellers rely on intuition and negotiation
+- Prices vary wildly by brand, city, condition, and origin
+
+**Our goal:** build a machine learning model that can **predict used car prices** based on real listing data — giving both buyers and sellers a data-backed reference point.
+
+> *Data Source: [Mendeley Data — Moroccan Used Cars Dataset](https://data.mendeley.com/datasets/vjrbcb2rrt/2)  
+> We thank the curators of this dataset.*
+
+
+## Dataset Overview {.smaller}
+
+Our dataset has **~100,000 listings** and **15 columns** — each one a clue:
+
+```{python}
+#| echo: true
+rows, cols = df.shape
+print(f"Dataset: {rows:,} rows × {cols} columns")
+```
+
+| Column | What it tells us |
+|:---|:---|
+| `Brand`, `Model` | Which car it is |
+| `Year`, `Mileage` | How old / used it is |
+| `Price` | **Target variable** — what we predict |
+| `Condition`, `Gearbox`, `Fuel` | Car characteristics |
+| `Location`, `Origin` | Where it's from |
+| `First Owner`, `Equipment` | Status & extras |
+| `Fiscal Power`, `Sector`, `Number of Doors` | Technical details |
+
+
+# Part 1: Data Quality & Cleaning
+
+> *Before modeling, we must understand and fix the data.*
+
+---
+
+## Diagnosing Missing Values {.smaller}
+
+The first question any data scientist asks — **what's missing?**
+
+```{python}
+#| echo: true
+missing = df.isnull().sum()
+percent_missing = (missing.sum() / np.prod(df.shape)) * 100
+print(f"About {percent_missing:.2f}% of the data is missing")
+print(missing[missing > 0])
+```
+
+Issues we found:
+
+- **Price** missing in some rows → useless without a target
+- **Number of Doors** and **Fiscal Power** → can be inferred
+- **Condition** → cannot be inferred reliably
+- **Origin, First Owner, Sector** → fill with `"Unknown"`
+- **Location** → mixed French/Arabic city names
+
+---
+
+## Chart 1 — Missing Values by Column {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Number of missing entries per column before cleaning"
+missing_data = df.isnull().sum()
+missing_data = missing_data[missing_data > 0].sort_values(ascending=False)
+
+fig, ax = plt.subplots(figsize=(11, 5))
+missing_data.plot.barh(ax=ax, color='steelblue')
+ax.set_title("Missing Values by Column", fontsize=15)
+ax.set_xlabel("Number of Missing Entries")
+for p in ax.patches:
+    ax.annotate(f"{int(p.get_width()):,}",
+                (p.get_width(), p.get_y() + p.get_height() / 2),
+                ha='left', va='center', fontsize=10, xytext=(5, 0),
+                textcoords='offset points')
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+## Cleaning Strategy — Per Column {.smaller}
+
+| Column | Issue | Strategy | Why |
+|:---|:---|:---|:---|
+| `Price` | Missing | **Drop rows** | Target variable — useless without it |
+| `Number of Doors` | Missing | **Impute** by Brand+Model+Year | Same car model → same door count |
+| `Fiscal Power` | Missing | **Impute** by Brand+Model+Year | Same model → same engine power |
+| `Condition` | Missing | **Drop rows** | Can't reliably infer car condition |
+| `Origin` | Missing | **Fill** → `"Unknown"` | Better than losing the row |
+| `First Owner` | Missing | **Fill** → `"Unknown"` | Could be any owner |
+| `Sector` | Missing | **Fill** → `"Unknown"` | Optional metadata |
+| `Brand / Model` | Bad row #6714 | **Drop row** | Unrecoverable |
+| `Duplicates` | — | **Drop** with `drop_duplicates()` | Data integrity |
+
+---
+
+## Imputing Number of Doors {.smaller}
+
+> Cars of the same Brand, Model, and Year almost always share the same door count.
+
+```{python}
+#| echo: true
+def fill_doors(df):
+    col = 'Number of Doors'
+    def group_mode(group_cols):
+        return (
+            df.dropna(subset=[col])
+              .groupby(group_cols)[col]
+              .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
+        )
+    mode_bmy = group_mode(['Brand', 'Model', 'Year'])
+    mode_bm  = group_mode(['Brand', 'Model'])
+    mode_b   = group_mode(['Brand'])
+    overall_mode = df[col].mode().iloc[0]
+
+    def impute(row):
+        if pd.notna(row[col]):
+            return row[col]
+        for key, lookup in [
+            ((row['Brand'], row['Model'], row['Year']), mode_bmy),
+            ((row['Brand'], row['Model']), mode_bm),
+            (row['Brand'], mode_b),
+        ]:
+            try:
+                val = lookup.loc[key]
+                if pd.notna(val): return val
+            except KeyError:
+                pass
+        return overall_mode
+
+    df[col] = df.apply(impute, axis=1)
+    df[col] = df[col].astype('int64')
+    return df
+
+df = fill_doors(df)
+print(f"Missing 'Number of Doors' after imputation: {df['Number of Doors'].isnull().sum()}")
+```
+
+**Strategy:** Most specific group first (Brand+Model+Year), then fall back gracefully.
+
+---
+
+## Applying All Cleaning Steps {.smaller}
+
+```{python}
+#| echo: true
+# Drop rows where condition is missing
+df = df.dropna(subset=['Condition'])
+
+# Fill categorical fields with 'Unknown'
+df['Origin']      = df['Origin'].fillna('Unknown')
+df['First Owner'] = df['First Owner'].fillna('Unknown')
+df['Sector']      = df['Sector'].fillna('Unknown')
+
+# Drop unrecoverable row and duplicates
+df = df.drop(index=6714, errors='ignore')
+df.drop_duplicates(inplace=True)
+
+# Fix Year column type
+df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
+df = df.dropna(subset=['Year'])
+df['Year'] = df['Year'].astype(int)
+df = df[~df['Brand'].str.isnumeric()]
+
+print(f"Clean dataset shape: {df.shape}")
+```
+
+---
+
+## Fixing Location — Arabic/French Normalization {.smaller}
+
+> Some listings use Arabic city names, others use French. We standardize to French.
+
+```{python}
+#| echo: true
+city_mapping = {
+    "الدار البيضاء": "Casablanca", "الرباط": "Rabat", "فاس": "Fès",
+    "مراكش": "Marrakech", "طنجة": "Tanger", "أكادير": "Agadir",
+    "وجدة": "Oujda", "القنيطرة": "Kénitra", "تطوان": "Tétouan",
+    "آسفي": "Safi", "الجديدة": "El Jadida", "العرائش": "Larache",
+    "خريبكة": "Khouribga", "بني ملال": "Beni Mellal", "الناظور": "Nador",
+    "العيون": "Laâyoune", "الداخلة": "Dakhla", "المحمدية": "Mohammedia",
+    "مكناس": "Meknès", "تمارة": "Temara"
+}
+
+df["Location"] = df["Location"].map(city_mapping).fillna(df["Location"])
+print(f"Total unique locations after mapping: {df['Location'].nunique()}")
+```
+
+---
+
+## Handling Price Outliers {.smaller}
+
+> The raw data has prices as low as **1 MAD** (FB Marketplace placeholders) and as high as **1.6 billion MAD**. Both ends are noise.
+
+```{python}
+#| echo: true
+print(f"Before — Min: {df.Price.min():.0f} MAD | Max: {df.Price.max():.0f} MAD")
+
+# Step 1: Kill known fake placeholder values
+df["Price"] = df["Price"].replace([1, 2, 5, 10], np.nan)
+
+# Step 2: Domain-informed floor — no legal Moroccan listing under 10,000 MAD
+df = df[df["Price"] >= 10_000]
+
+# Step 3: IQR-based upper fence — removes extreme luxury outliers
+Q1 = df["Price"].quantile(0.25)
+Q3 = df["Price"].quantile(0.75)
+IQR = Q3 - Q1
+upper = Q3 + 1.5 * IQR
+df = df[df["Price"] <= upper]
+
+print(f"After  — Min: {df.Price.min():.0f} MAD | Max: {df.Price.max():.0f} MAD")
+print(f"Mean: {df.Price.mean():.0f} MAD | Median: {df.Price.median():.0f} MAD")
+```
+
+---
+
+## Renaming Columns {.smaller}
+
+```{python}
+#| echo: true
+new_names_mapping = {'Number of Doors': 'NoD', 'First Owner': 'FO'}
+df.rename(columns=new_names_mapping, inplace=True)
+```
+
+## Imputing Fiscal Power {.smaller}
+
+```{python}
+#| echo: true
+def fill_fiscal_power(df):
+    col = 'Fiscal Power'
+    def group_mode(group_cols):
+        return (
+            df.dropna(subset=[col])
+              .groupby(group_cols)[col]
+              .agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan)
+        )
+    mode_bmy = group_mode(['Brand', 'Model', 'Year'])
+    mode_bm  = group_mode(['Brand', 'Model'])
+    mode_b   = group_mode(['Brand'])
+    overall_mode = df[col].mode().iloc[0]
+
+    def impute(row):
+        if pd.notna(row[col]):
+            return row[col]
+        for key, lookup in [
+            ((row['Brand'], row['Model'], row['Year']), mode_bmy),
+            ((row['Brand'], row['Model']), mode_bm),
+            (row['Brand'], mode_b),
+        ]:
+            try:
+                val = lookup.loc[key]
+                if pd.notna(val): return val
+            except KeyError:
+                pass
+        return overall_mode
+
+    df[col] = df.apply(impute, axis=1)
+    return df
+
+df = fill_fiscal_power(df)
+print(f"Missing 'Fiscal Power' after imputation: {df['Fiscal Power'].isnull().sum()}")
+```
+
+---
+
+## The Dataset is Now Clean! {.smaller}
+
+```{python}
+missing_after = df.isnull().sum()
+total_missing = missing_after[missing_after > 0]
+if total_missing.empty:
+    print("✅ Zero missing values remaining!")
+    print(f"Final shape: {df.shape[0]:,} rows × {df.shape[1]} columns")
+else:
+    print(total_missing)
+```
+
+> *The data is clean. Now let's explore it.*
+
+
+# Part 2: Exploratory Data Analysis
+
+> *Understanding the data before modeling is not optional — it's essential.*
+
+---
+
+## Chart 2 — Price Distribution {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Left: linear scale showing right skew. Right: log scale revealing near-normality."
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+upper = df['Price'].quantile(0.95)
+sns.kdeplot(data=df[df['Price'] <= upper], x='Price', fill=True,
+            color='steelblue', alpha=0.6, ax=axes[0])
+axes[0].set_title('Price Distribution (up to 95th percentile)', fontsize=13)
+axes[0].set_xlabel('Price (MAD)')
+
+sns.kdeplot(data=df, x='Price', fill=True, color='navy', alpha=0.6,
+            ax=axes[1], log_scale=True)
+axes[1].set_title('Price Distribution (Log Scale)', fontsize=13)
+axes[1].set_xlabel('Price (MAD) — log scale')
+
+plt.tight_layout()
+plt.show()
+```
+
+**Key insight:** The distribution is heavily right-skewed. Log-transforming the target makes it near-normal → better for regression models.
+
+---
+
+## Chart 3 — Price by Year {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Newer cars consistently command higher prices. Year is one of the strongest predictors."
+median_by_year = df.groupby('Year')['Price'].median().reset_index()
+
+fig, ax = plt.subplots(figsize=(14, 5))
+sns.barplot(data=median_by_year, x='Year', y='Price', hue='Year',
+            palette='viridis', legend=False, ax=ax)
+ax.plot(range(len(median_by_year)), median_by_year['Price'],
+        color='black', linestyle='-', linewidth=1.5)
+ax.set_title('Median Price by Year', fontsize=15)
+ax.set_xlabel('Year', fontsize=12)
+ax.set_ylabel('Median Price (MAD)', fontsize=12)
+ax.tick_params(axis='x', rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+## EDA Summary — Key Findings {.smaller}
+
+| Factor | Effect on Price |
+|:---|:---|
+| **Brand** | Porsche, Land Rover, Jaguar at the top |
+| **Year** | Newer → More expensive (strong positive trend) |
+| **Condition** | Fair < Good < Very Good < Excellent ✅ |
+| **Gearbox** | Automatic > Manual (premium linked to newer models) |
+| **Fuel** | Diesel dominates (~65% of the market) |
+| **First Owner** | Significant premium over multi-owner cars |
+| **Origin** | Imported/customs-cleared cars fetch higher prices |
+| **Equipment Count** | Positive correlation with price |
+
+
+# Part 3: Feature Engineering & Selection
+
+> *Raw features rarely speak directly to a model. We need to translate them.*
+
+---
+
+## Feature Engineering Steps {.smaller}
+
+```{python}
+#| echo: true
+# Binary encode First Owner
+FO_mapping = {"Yes": 1, "No": 0, "Unknown": 0}
+df['FO'] = df['FO'].map(FO_mapping)
+
+# Ordinal encode Condition on a 0–1 normalized scale
+condition_order = ['For Parts', 'Damaged', 'Fair', 'Good', 'Very Good', 'Excellent', 'New']
+condition_map = {cond: i / (len(condition_order) - 1) for i, cond in enumerate(condition_order)}
+df['condition_numeric'] = df['Condition'].map(condition_map)
+
+# Count equipment features per listing
+df['num_features'] = df['Equipment'].fillna('').apply(
+    lambda s: len([x for x in s.split(',') if x.strip() != ''])
+)
+
+# Convert mileage range strings → numeric mean value
+def mileage_to_mean(mileage_str):
+    try:
+        if pd.isna(mileage_str): return None
+        mileage_str = mileage_str.replace(" ", "").lower()
+        if "plusde" in mileage_str:
+            return int(re.findall(r"\d+", mileage_str)[0])
+        elif "-" in mileage_str:
+            low, high = mileage_str.split("-")
+            return (int(low) + int(high)) / 2
+        return int(mileage_str)
+    except:
+        return None
+
+df["Mileage_mean"] = df["Mileage"].apply(mileage_to_mean)
+df = df[df["Mileage_mean"] < 400_000]
+
+# Extract numeric fiscal power value
+df["Fiscal Power"] = df["Fiscal Power"].astype(str).str.extract(r"(\d+)\s*CV").astype(float)
+
+# Log-transform skewed columns
+df['Price_log']   = np.log1p(df['Price'])
+df['Mileage_log'] = np.log1p(df['Mileage_mean'])
+
+# Car age is more intuitive than raw year for the model
+df['Age'] = 2025 - df['Year']
+
+# Interaction term: an old + high-mileage car is much worse than either alone
+df['Age_x_Mileage'] = df['Age'] * df['Mileage_log']
+```
+
+---
+
+## Chart 4 — Correlation Matrix {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Year and Fiscal Power have the strongest positive correlations with Price."
+numeric = df.select_dtypes(include=[np.number])
+corr_matrix = numeric.corr()
+
+plt.figure(figsize=(11, 6))
+sns.heatmap(corr_matrix, cmap='viridis', center=0, annot=True, fmt=".2f",
+            linewidths=0.5, annot_kws={"size": 8})
+plt.title('Correlation Matrix of Numeric Features', fontsize=14)
+plt.tight_layout()
+plt.show()
+```
+
+**Top correlators with Price:** `Year` (+), `Fiscal Power` (+), `Mileage` (−)
+
+---
+
+## Feature Selection & Encoding Strategy {.smaller}
+
+**Final features selected:**
+
+| Feature | Type | Encoding |
+|:---|:---|:---|
+| `Age` | Numeric (derived) | StandardScaler |
+| `Fiscal Power` | Numeric | StandardScaler |
+| `Mileage_log` | Numeric (log) | StandardScaler |
+| `Age_x_Mileage` | Numeric (interaction) | StandardScaler |
+| `num_features` | Numeric | StandardScaler |
+| `condition_numeric` | Ordinal (0–1 normalized) | StandardScaler |
+| `FO` | Binary | StandardScaler |
+| `Gearbox`, `Fuel`, `Origin` | Categorical | One-Hot Encoding |
+| `Brand`, `Model` | High-cardinality | Target Encoding |
+
+**Dropped:** `Year` (→ `Age`), `Mileage_mean` (→ `Mileage_log`), `Location`, `Sector`, `NoD`, `Equipment` (raw), `Condition` (raw)
+
+
+# Part 4: Preprocessing Pipeline
+
+---
+
+## Building the Preprocessing Pipeline {.smaller}
+
+```{python}
+#| echo: true
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.base import clone
+
+# Drop raw/redundant columns
+drop_cols = ['Price', 'Price_log', 'Condition', 'Location', 'Sector', 'NoD',
+             'Year', 'Mileage', 'Mileage_mean', 'Equipment']
+X = df.drop(columns=drop_cols, errors='ignore')
+y = df['Price_log']
+
+# 80/20 train-test split — BEFORE any fitting
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Column groups
+numeric_cols    = ['Age', 'Fiscal Power', 'Mileage_log',
+                   'num_features', 'condition_numeric', 'Age_x_Mileage', 'FO']
+ohe_cols        = ['Gearbox', 'Fuel', 'Origin']
+target_enc_cols = ['Brand', 'Model']
+
+preprocessor = ColumnTransformer(transformers=[
+    ('num',    StandardScaler(),                                     numeric_cols),
+    ('ohe',    OneHotEncoder(drop='first', handle_unknown='ignore'), ohe_cols),
+    ('target', TargetEncoder(target_type='continuous'),              target_enc_cols),
+])
+
+print(f"Train size: {X_train.shape[0]:,} | Test size: {X_test.shape[0]:,}")
+print(f"Features going in: {X.shape[1]} columns")
+```
+
+**Key choices:**
+
+- **`Age`** replaces raw `Year` — more linear relationship with price
+- **`Age_x_Mileage`** interaction term — old + high-mileage cars degrade non-linearly
+- **StandardScaler** for numerics → required by Ridge and Lasso
+- **TargetEncoder** for Brand/Model → handles high cardinality without feature explosion
+- **log(Price)** as target → stabilizes variance, improves linear model fit
+
+
+# Part 5: Model Selection
+
+> *Why these four models? Coverage across the linear/non-linear spectrum.*
+
+---
+
+## Model Selection Rationale {.smaller}
+
+| Model | Type | Why we chose it |
+|:---|:---|:---|
+| **Ridge** | Linear + L2 regularization | Handles multicollinearity; interpretable coefficients |
+| **Lasso** | Linear + L1 regularization | Implicit feature selection; sparse coefficients |
+| **Random Forest** | Ensemble (bagging) | Non-linear, robust, built-in feature importance |
+| **XGBoost** | Ensemble (boosting) | State-of-the-art on tabular data; regularization built-in |
+
+**Evaluation metrics:** R², RMSE, MAE on the **test set** (predictions inverse log-transformed to MAD).
+
+---
+
+## Why Ridge and Lasso? {.smaller}
+
+Ridge and Lasso are **regularized linear regression** models:
+
+- **Ridge (L2):** Shrinks coefficients toward zero — useful when features are correlated (e.g., Year ↔ Mileage). Keeps all features.
+- **Lasso (L1):** Can set coefficients to exactly zero — acts as a built-in feature selector. Useful to understand which features the model ignores.
+
+Both serve as **interpretable baselines** to compare against more complex non-linear models.
+
+---
+
+## Why Random Forest? {.smaller}
+
+Random Forest is a **bagging ensemble** of decision trees:
+
+- Each tree is trained on a **random subset** of rows and features
+- Averaging their predictions reduces variance (overfitting)
+- Naturally captures **non-linear relationships** (e.g., Year × Brand interactions)
+- Provides **built-in feature importance** via mean impurity decrease
+- **Robust to outliers** and doesn't require feature scaling
+
+A strong baseline for tabular data before trying boosting.
+
+---
+
+## Why XGBoost? {.smaller}
+
+XGBoost is a **gradient boosting** algorithm:
+
+- Trees are built **sequentially** — each one corrects the errors of the previous
+- Built-in **L1/L2 regularization** prevents overfitting
+- Handles **mixed feature types** natively
+- Supports **GPU acceleration** (trained on GTX 1650 Max-Q)
+- Consistently achieves **state-of-the-art results** on structured/tabular data
+- Hyperparameters tuned via **RandomizedSearchCV** with cross-validation
+
+**Tuned parameters:** `n_estimators`, `max_depth`, `learning_rate`, `subsample`, `colsample_bytree`, `reg_alpha`, `reg_lambda`
+
+
+# Part 6: Training & Results
+
+---
+
+## XGBoost — Optimized Parameters {.smaller}
+
+Parameters were obtained via `RandomizedSearchCV` with 5-fold cross-validation (run on Google Colab T4 GPU).
+
+```{python}
+#| echo: true
+from sklearn.linear_model import Ridge, Lasso, LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.base import clone
+from xgboost import XGBRegressor
+import xgboost as xgb
+
+DEVICE = 'cpu'  # change to 'cuda' if running on GPU
+
+def calculate_metrics(y_true, y_pred, name="Model"):
+    mae  = mean_absolute_error(y_true, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    r2   = r2_score(y_true, y_pred)
+    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+    print(f"=== {name} ===")
+    print(f"MAE:  {mae:,.0f} MAD  |  RMSE: {rmse:,.0f} MAD  |  R²: {r2:.4f}  |  MAPE: {mape:.2f}%")
+    return {"R²": round(r2,4), "MAE": round(mae), "RMSE": round(rmse), "MAPE": round(mape,2)}
+
+# Tuned XGBoost parameters (from RandomizedSearchCV)
+optimized_params = {
+    'n_estimators':    500,
+    'max_depth':       6,
+    'learning_rate':   0.05,
+    'subsample':       0.7,
+    'colsample_bytree': 0.7,
+    'reg_lambda':      5,
+    'reg_alpha':       0,
+    'device':          DEVICE,
+    'random_state':    42,
+}
+
+xgb_model = XGBRegressor(**optimized_params)
+
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', xgb_model)
+])
+
+pipeline.fit(X_train, y_train)
+final_xgb_model = pipeline.named_steps['model']
+
+y_pred_log = pipeline.predict(X_test)
+y_pred_xgb = np.expm1(y_pred_log)
+y_true     = np.expm1(y_test)
+xgb_metrics = calculate_metrics(y_true, y_pred_xgb, "XGBoost")
+```
+
+---
+
+## RandomizedSearchCV — Hyperparameter Tuning {.smaller}
+
+> Run on Google Colab T4 GPU. Results used to set `optimized_params` above.
+
+```{python}
+#| echo: true
+#| eval: false
+param_dist = {
+    'model__n_estimators':  [200, 300, 500],
+    'model__max_depth':     [3, 4, 5, 6],
+    'model__learning_rate': [0.01, 0.05, 0.1],
+    'model__subsample':     [0.7, 0.8, 1.0],
+}
+
+search_pipeline = Pipeline([
+    ('preprocessor', clone(preprocessor)),
+    ('model', XGBRegressor(random_state=42, device='cuda',
+                           tree_method='hist', nthread=1))
+])
+
+search = RandomizedSearchCV(
+    search_pipeline, param_dist,
+    n_iter=20, cv=5, scoring='r2',
+    random_state=42, n_jobs=1
+)
+search.fit(X_train, y_train)
+print("Best params:", search.best_params_)
+print(f"Best CV R²: {search.best_score_:.4f}")
+```
+
+**Same approach applied for Random Forest** with its own param grid (`max_depth`, `max_features`, `min_samples_leaf`, `bootstrap`).
+
+---
+
+## All 5 Models — Comparison {.smaller}
+
+```{python}
+#| echo: true
+optimized_params_rf = {
+    'n_estimators':     300,
+    'max_depth':        20,
+    'min_samples_split': 2,
+    'min_samples_leaf':  1,
+    'max_features':     'log2',
+    'bootstrap':        False,
+    'random_state':     42,
+    'n_jobs':           -1,
+}
+
+models = {
+    "Linear Regression": LinearRegression(),
+    "Ridge":             Ridge(alpha=0.1),
+    "Lasso":             Lasso(alpha=0.1, max_iter=10_000),
+    "Random Forest":     RandomForestRegressor(**optimized_params_rf),
+    "XGBoost":           XGBRegressor(**{**optimized_params,
+                                         "objective": "reg:squarederror"}),
+}
+
+results = {}
+for name, model in models.items():
+    pipe = Pipeline([("preprocessor", clone(preprocessor)), ("model", model)])
+    pipe.fit(X_train, y_train)
+    preds = np.expm1(pipe.predict(X_test))
+    true  = np.expm1(y_test)
+    results[name] = calculate_metrics(true, preds, name)
+```
+
+---
+
+## Model Comparison — Metrics Table {.smaller}
+
+```{python}
+results_df = pd.DataFrame(results).T
+results_df.index.name = "Model"
+print(results_df.to_string())
+```
+
+| | Linear | Ridge | Lasso | Random Forest | XGBoost |
+|---|---|---|---|---|---|
+| **R²** | ~0.74 | ~0.79 | ~0.78 | ~0.89 | **~0.91** |
+| **RMSE** | Highest | High | High | Lower | **Lowest** |
+| **Interpretability** | High | High | High | Medium | Low |
+
+> **XGBoost wins** on all performance metrics. Linear models remain useful as interpretable baselines.
+
+---
+
+## Chart 5 — Model Comparison (MAE & RMSE) {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Error metrics — lower is better. XGBoost achieves the lowest MAE and RMSE."
+models_list = list(results.keys())
+x = np.arange(len(models_list))
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+for ax, metric, color in zip(axes, ["MAE", "RMSE"], ["#4C72B0", "#DD8452"]):
+    values = [results[m][metric] for m in models_list]
+    bars = ax.bar(x, values, width=0.5, color=color, alpha=0.85, edgecolor="white")
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(values) * 0.01,
+                f"{val:,.0f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
+    ax.set_title(metric, fontsize=13, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(models_list, rotation=20, ha="right", fontsize=9)
+    ax.set_ylabel("MAD")
+    ax.grid(axis="y", alpha=0.3)
+    ax.spines[["top", "right"]].set_visible(False)
+
+plt.suptitle("Error Metrics by Model", fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+## Chart 5 (cont.) — MAPE & R² {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "R² closer to 1 is better; MAPE lower is better. XGBoost wins on both."
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+for ax, metric, color in zip(axes, ["MAPE", "R²"], ["#55A868", "#C44E52"]):
+    values = [results[m][metric] for m in models_list]
+    bars = ax.bar(x, values, width=0.5, color=color, alpha=0.85, edgecolor="white")
+    for bar, val in zip(bars, values):
+        label = f"{val:.1f}%" if metric == "MAPE" else f"{val:.4f}"
+        ax.text(bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(values) * 0.01,
+                label, ha="center", va="bottom", fontsize=9, fontweight="bold")
+    ax.set_title(metric, fontsize=13, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(models_list, rotation=20, ha="right", fontsize=9)
+    ax.set_ylabel("%" if metric == "MAPE" else "Score")
+    if metric == "R²": ax.set_ylim(0, 1)
+    ax.grid(axis="y", alpha=0.3)
+    ax.spines[["top", "right"]].set_visible(False)
+
+plt.suptitle("Accuracy Metrics by Model", fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+---
+
+## XGBoost — Feature Importance {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Top 15 features by split Gain. Age, Brand, and Mileage dominate."
+ohe_feature_names = (pipeline.named_steps['preprocessor']
+                              .named_transformers_['ohe']
+                              .get_feature_names_out(ohe_cols).tolist())
+all_features = numeric_cols + ohe_feature_names + target_enc_cols
+
+fig, ax = plt.subplots(figsize=(10, 7))
+xgb.plot_importance(final_xgb_model, ax=ax, importance_type='gain',
+                    max_num_features=15, height=0.7, color='#4C72B0')
+
+ticks  = ax.get_yticklabels()
+labels = [all_features[int(t.get_text()[1:])]
+          if t.get_text().startswith('f') else t.get_text()
+          for t in ticks]
+ax.set_yticklabels(labels)
+ax.set_title('Top 15 Features by Gain', fontsize=13)
+plt.tight_layout()
+plt.show()
+```
+
+> **Gain** measures the improvement in accuracy each feature brings to the trees — more meaningful than split frequency (`weight`).
+
+
+# Part 7: Challenges & Lessons Learned
+
+---
+
+## Challenges Encountered {.smaller}
+
+**1. Data Quality was the biggest bottleneck**
+
+- Mixed Arabic/French location names
+- Mileage stored as range strings (`"50000 - 100000 km"`)
+- Fiscal Power as strings (`"7 CV"`)
+- Price stored with currency symbols and commas
+
+**2. Encoding strategy differs by model family**
+
+- Ridge/Lasso: require scaled numerics + OHE
+- XGBoost/RF: don't need scaling, but still benefit from target encoding on high-cardinality features
+
+**3. High-cardinality features (Brand, Model)**
+
+- Over 60 brands, hundreds of models
+- Simple OHE would create thousands of dummy columns → Target Encoding was the right call
+
+**4. Log-transforming the target**
+
+- Raw price is right-skewed → log(price) is near-normal
+- Required careful inverse transformation when computing metrics
+
+---
+
+## Lessons Learned {.smaller}
+
+> *Feature engineering mattered more than model tuning.*
+
+The time spent carefully handling `Mileage`, `Fiscal Power`, and encoding `Brand/Model` correctly contributed more to our final R² than tuning hyperparameters.
+
+| Lesson | Takeaway |
+|:---|:---|
+| Data cleaning is 60% of the work | Never rush it |
+| Log-transform skewed targets | Helps linear models significantly |
+| Target Encoding > OHE for high cardinality | Avoids feature explosion |
+| Baseline models first | Ridge/Lasso showed us how far non-linearity helps |
+| GPU acceleration | Reduced XGBoost training from minutes to seconds |
+
+
+# Conclusion & Perspectives
+
+---
+
+## What We Built {.smaller}
+
+A complete end-to-end data science pipeline for predicting used car prices in Morocco:
+
+```
+Raw Data (100K listings)
+      ↓
+   Cleaning (missing values, outliers, encoding)
+      ↓
+   EDA (price distribution, key correlates)
+      ↓
+   Feature Engineering (log-transform, imputation, encoding)
+      ↓
+   Model Training (Ridge, Lasso, Random Forest, XGBoost)
+      ↓
+   Evaluation (R², RMSE, MAE — on held-out test set)
+      ↓
+   Deployment (Streamlit app — real-time prediction)
+```
+
+**Best model: XGBoost with R² ≈ 0.91**
+
+---
+
+## Perspectives & Future Work {.smaller}
+
+| Direction | Description |
+|:---|:---|
+| 📅 **More recent data** | The market evolves — refresh the dataset regularly |
+| 📝 **NLP on descriptions** | Extract features from free-text listing descriptions |
+| 🗺️ **Geospatial features** | Region-level economic indicators as additional signals |
+| 🔁 **Retraining pipeline** | Automate periodic model updates with new data |
+| 🌐 **Production API** | Expose model via FastAPI for integration with listing platforms |
+| 🔍 **SHAP explanations** | Make predictions interpretable for end users |
+
+> *A price predictor is only as good as the data it was trained on.*
+
+---
+
+## Links & Resources {.smaller}
+
+- 📊 **Dataset:** [Mendeley Data — Moroccan Used Cars](https://data.mendeley.com/datasets/vjrbcb2rrt/2)
+- 💻 **Code:** Available on GitHub
+- 🚀 **Live Demo:** Streamlit app
+
+---
+
+# Thank You!
+
+**BAHLAOUI Ahmed · ENNAKHLAOUI Aya · LOGRAINE Wiam**
+
+**ENSAM RABAT — INDIA/SD · 2025/2026**
+
+*Supervised by Pr. Dafrallah & Pr. El Yadari*
+
+> Questions?
