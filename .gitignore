@@ -12,6 +12,8 @@ wheels/
 # Virtual environments
 .venv
 
+claude_slides_files/
+claude_slides.html
 
 # presentation_files
 slides_files/
