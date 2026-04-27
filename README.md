@@ -52,7 +52,7 @@ if you don't please do install it and use the commands below to view and compile
 
 **Preview locally in the terminal (without opening a browser immediately):**
 ```bash
-quarto preview slides.qmd --no-browser
+quarto preview claude_slides_updated.qmd --no-browser
 ```
 
 **Render to static HTML:**
