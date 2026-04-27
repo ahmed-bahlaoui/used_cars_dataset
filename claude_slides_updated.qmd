@@ -461,6 +461,8 @@ plt.show()
 
 ```{python}
 #| echo: true
+#| code-fold: show
+#| code-line-numbers: "|2-3|6-8|11-13|33|35-37|39-40|42-43|"
 # Binary encode First Owner
 FO_mapping = {"Yes": 1, "No": 0, "Unknown": 0}
 df['FO'] = df['FO'].map(FO_mapping)
@@ -934,56 +936,11 @@ The time spent carefully handling `Mileage`, `Fiscal Power`, and encoding `Brand
 | GPU acceleration | Reduced XGBoost training from minutes to seconds |
 
 
-# Conclusion & Perspectives
-
----
-
-## What We Built {.smaller}
-
-A complete end-to-end data science pipeline for predicting used car prices in Morocco:
-
-```
-Raw Data (100K listings)
-      ↓
-   Cleaning (missing values, outliers, encoding)
-      ↓
-   EDA (price distribution, key correlates)
-      ↓
-   Feature Engineering (log-transform, imputation, encoding)
-      ↓
-   Model Training (Ridge, Lasso, Random Forest, XGBoost)
-      ↓
-   Evaluation (R², RMSE, MAE — on held-out test set)
-      ↓
-   Deployment (Streamlit app — real-time prediction)
-```
-
-**Best model: XGBoost with R² ≈ 0.91**
-
----
-
-## Perspectives & Future Work {.smaller}
-
-| Direction | Description |
-|:---|:---|
-| 📅 **More recent data** | The market evolves — refresh the dataset regularly |
-| 📝 **NLP on descriptions** | Extract features from free-text listing descriptions |
-| 🗺️ **Geospatial features** | Region-level economic indicators as additional signals |
-| 🔁 **Retraining pipeline** | Automate periodic model updates with new data |
-| 🌐 **Production API** | Expose model via FastAPI for integration with listing platforms |
-| 🔍 **SHAP explanations** | Make predictions interpretable for end users |
-
-> *A price predictor is only as good as the data it was trained on.*
-
----
-
 ## Links & Resources {.smaller}
 
 - 📊 **Dataset:** [Mendeley Data — Moroccan Used Cars](https://data.mendeley.com/datasets/vjrbcb2rrt/2)
 - 💻 **Code:** Available on GitHub
 - 🚀 **Live Demo:** Streamlit app
-
----
 
 # Thank You!
 
