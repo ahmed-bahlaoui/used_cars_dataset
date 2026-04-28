@@ -176,8 +176,11 @@ plt.show()
 
 ## Dropping Rows with Missing Price {.smaller}
 
-> Why drop those 25,000 rows instead of just filling in an estimated price? 
-> - Price is the target variable, and dropping is the only sound choice here
+> why drop those 25,000 rows instead of just filling in an estimated price?
+
+> The answer is that Price is our target variable — it's what the model is supposed to learn to predict.
+
+> If we fill it ourselves before training, the model ends up learning from values we invented, which would directly bias the results. Dropping is the only sound choice here.  
 
 ```{python}
 #| echo: true
@@ -195,9 +198,12 @@ assert df['Price'].isnull().sum() == 0
 ## Imputing Number of Doors {.smaller}
 
 > Cars of the same Brand, Model, and Year almost always share the same door count.
+> So we imputed them using a hierarchical approach
 
 ```{python}
 #| echo: true
+#| code-fold: show
+#| code-line-numbers: "|9|10|11|12|"
 def fill_doors(df):
     col = 'Number of Doors'
     def group_mode(group_cols):
