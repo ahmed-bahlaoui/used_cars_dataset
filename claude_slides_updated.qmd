@@ -981,6 +981,29 @@ plt.show()
 
 > **Gain** measures the improvement in accuracy each feature brings to the trees — more meaningful than split frequency (`weight`).
 
+---
+
+## XGBoost — Top 15 Feature Splits by Frequency {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Top 15 features by split frequency (weight). How often each feature is used to split a node across all trees."
+fig, ax = plt.subplots(figsize=(10, 7))
+xgb.plot_importance(final_xgb_model, ax=ax, importance_type='weight',
+                    max_num_features=15, height=0.7, color='#DD8452')
+
+ticks  = ax.get_yticklabels()
+labels = [all_features[int(t.get_text()[1:])]\
+          if t.get_text().startswith('f') else t.get_text()
+          for t in ticks]
+ax.set_yticklabels(labels)
+ax.set_title('Top 15 Features by Split Frequency', fontsize=13)
+plt.tight_layout()
+plt.show()
+```
+
+> **Split Frequency (weight)** counts how many times a feature is used across all tree splits. High-frequency features are queried often but not necessarily the most impactful — compare with **Gain** above.
+
 
 # Part 7: Challenges & Lessons Learned
 
