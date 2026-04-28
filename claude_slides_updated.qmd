@@ -898,7 +898,7 @@ print(results_df.to_string())
 
 ```{python}
 #| echo: true
-#| fig-cap: "Error metrics — lower is better. XGBoost achieves the lowest MAE and RMSE."
+#| fig-cap: "Error metrics — lower is better. Random Forest achieves the lowest MAE and RMSE."
 models_list = list(results.keys())
 x = np.arange(len(models_list))
 
@@ -929,7 +929,7 @@ plt.show()
 
 ```{python}
 #| echo: true
-#| fig-cap: "R² closer to 1 is better; MAPE lower is better. XGBoost wins on both."
+#| fig-cap: "R² closer to 1 is better; MAPE lower is better. Random forest wins on both."
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
 for ax, metric, color in zip(axes, ["MAPE", "R²"], ["#55A868", "#C44E52"]):
