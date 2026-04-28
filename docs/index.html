@@ -1129,7 +1129,7 @@ We thank the curators of this dataset.</em></p>
 <section id="dataset-overview" class="slide level2 smaller">
 <h2>Dataset Overview</h2>
 <p>Our dataset has <strong>~100,000 listings</strong> and <strong>15 columns</strong> — each one a clue:</p>
-<div id="4553038f" class="cell" data-execution_count="2">
+<div id="da88daa3" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href></a>rows, cols <span class="op">=</span> df.shape</span>
@@ -1188,7 +1188,7 @@ We thank the curators of this dataset.</em></p>
 <section id="diagnosing-missing-values" class="slide level2 smaller">
 <h2>Diagnosing Missing Values</h2>
 <p>The first question any data scientist asks — <strong>what’s missing?</strong></p>
-<div id="7f067e06" class="cell" data-execution_count="3">
+<div id="2c4349db" class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href></a>missing <span class="op">=</span> df.isnull().<span class="bu">sum</span>()</span>
@@ -1222,7 +1222,7 @@ dtype: int64</code></pre>
 </section>
 <section id="chart-1-missing-values-by-column" class="slide level2 smaller">
 <h2>Chart 1 — Missing Values by Column</h2>
-<div id="0653c847" class="cell" data-execution_count="4">
+<div id="99617ebc" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href></a>missing_data <span class="op">=</span> df.isnull().<span class="bu">sum</span>()</span>
@@ -1339,7 +1339,7 @@ dtype: int64</code></pre>
 <blockquote>
 <p>If we fill it ourselves before training, the model ends up learning from values we invented, which would directly bias the results. Dropping is the only sound choice here.</p>
 </blockquote>
-<div id="6c117cd6" class="cell" data-execution_count="5">
+<div id="ea37a7dc" class="cell" data-execution_count="5">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href></a>missing_price_before <span class="op">=</span> df[<span class="st">&#39;Price&#39;</span>].isnull().<span class="bu">sum</span>()</span>
@@ -1355,7 +1355,7 @@ dtype: int64</code></pre>
 <blockquote>
 <p>Cars of the same Brand, Model, and Year almost always share the same door count. So we imputed them using a hierarchical approach</p>
 </blockquote>
-<div id="43a548f1" class="cell" data-execution_count="6">
+<div id="e9b61a83" class="cell" data-execution_count="6">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7" data-code-line-numbers="|9|10|11|12|"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href></a><span class="kw">def</span> fill_doors(df):</span>
@@ -1401,7 +1401,7 @@ dtype: int64</code></pre>
 </section>
 <section id="imputing-fiscal-power" class="slide level2 smaller">
 <h2>Imputing Fiscal Power</h2>
-<div id="8a180ffc" class="cell" data-execution_count="7">
+<div id="4931dbc5" class="cell" data-execution_count="7">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href></a><span class="kw">def</span> fill_fiscal_power(df):</span>
@@ -1446,7 +1446,7 @@ dtype: int64</code></pre>
 </section>
 <section id="applying-all-cleaning-steps" class="slide level2 smaller">
 <h2>Applying All Cleaning Steps</h2>
-<div id="4a28d3d2" class="cell" data-execution_count="8">
+<div id="c8a3625b" class="cell" data-execution_count="8">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11" data-code-line-numbers="|2|5-7|10-12|14-17"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href></a><span class="co"># Drop rows where condition is missing</span></span>
@@ -1479,7 +1479,7 @@ dtype: int64</code></pre>
 <blockquote>
 <p>Some listings use Arabic city names, others use French. We standardize to French.</p>
 </blockquote>
-<div id="ea5e335e" class="cell" data-execution_count="9">
+<div id="d30db436" class="cell" data-execution_count="9">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13" data-code-line-numbers="|24-25|"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href></a>city_mapping <span class="op">=</span> {</span>
@@ -1516,9 +1516,12 @@ dtype: int64</code></pre>
 <section id="handling-price-outliers" class="slide level2 smaller">
 <h2>Handling Price Outliers</h2>
 <blockquote>
-<p>The raw data has prices as low as <strong>1 MAD</strong> (FB Marketplace placeholders) and as high as <strong>1.6 billion MAD</strong>. Both ends are noise.</p>
+<p>We defined a lower and upper bound. Any price outside those bounds was removed.</p>
 </blockquote>
-<div id="3da85c6d" class="cell" data-execution_count="10">
+<blockquote>
+<p>IQR is based on the actual distribution of the data ,not just a random cutoff we picked ourselves.</p>
+</blockquote>
+<div id="f9cd10eb" class="cell" data-execution_count="10">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15" data-code-line-numbers="|11-12|13|14-15|16"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href></a><span class="bu">print</span>(<span class="ss">f&quot;Before — Min: </span><span class="sc">{</span>df<span class="sc">.</span>Price<span class="sc">.</span><span class="bu">min</span>()<span class="sc">:.0f}</span><span class="ss"> MAD | Max: </span><span class="sc">{</span>df<span class="sc">.</span>Price<span class="sc">.</span><span class="bu">max</span>()<span class="sc">:.0f}</span><span class="ss"> MAD&quot;</span>)</span>
@@ -1550,7 +1553,7 @@ Mean: 116122 MAD | Median: 104000 MAD</code></pre>
 </section>
 <section id="renaming-columns" class="slide level2 smaller">
 <h2>Renaming Columns</h2>
-<div id="9b829546" class="cell" data-execution_count="11">
+<div id="07d834a8" class="cell" data-execution_count="11">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href></a>new_names_mapping <span class="op">=</span> {<span class="st">&#39;Number of Doors&#39;</span>: <span class="st">&#39;NoD&#39;</span>, <span class="st">&#39;First Owner&#39;</span>: <span class="st">&#39;FO&#39;</span>}</span>
@@ -1560,7 +1563,7 @@ Mean: 116122 MAD | Median: 104000 MAD</code></pre>
 </section>
 <section id="the-dataset-is-now-clean" class="slide level2 smaller">
 <h2>The Dataset is Now Clean!</h2>
-<div id="5ce3bbea" class="cell" data-execution_count="12">
+<div id="2e8baaa2" class="cell" data-execution_count="12">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href></a>missing_after <span class="op">=</span> df.isnull().<span class="bu">sum</span>()</span>
@@ -1589,7 +1592,7 @@ Final shape: 66,935 rows × 15 columns</code></pre>
 </section>
 <section id="chart-2-price-distribution" class="slide level2 smaller">
 <h2>Chart 2 — Price Distribution</h2>
-<div id="aa3c1807" class="cell" data-execution_count="13">
+<div id="86b2b7a9" class="cell" data-execution_count="13">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">5</span>))</span>
@@ -1621,7 +1624,7 @@ Final shape: 66,935 rows × 15 columns</code></pre>
 </section>
 <section id="chart-3-price-by-year" class="slide level2 smaller">
 <h2>Chart 3 — Price by Year</h2>
-<div id="00022e67" class="cell" data-execution_count="14">
+<div id="8be287e0" class="cell" data-execution_count="14">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href></a>median_by_year <span class="op">=</span> df.groupby(<span class="st">&#39;Year&#39;</span>)[<span class="st">&#39;Price&#39;</span>].median().reset_index()</span>
@@ -1650,7 +1653,7 @@ Final shape: 66,935 rows × 15 columns</code></pre>
 </section>
 <section id="chart-4-price-by-condition" class="slide level2 smaller">
 <h2>Chart 4 — Price by Condition</h2>
-<div id="cdf373da" class="cell" data-execution_count="15">
+<div id="83e99b1b" class="cell" data-execution_count="15">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href></a>median_price_by_condition <span class="op">=</span> df.groupby(<span class="st">&#39;Condition&#39;</span>)[<span class="st">&#39;Price&#39;</span>].median().reset_index()</span>
@@ -1741,7 +1744,7 @@ Final shape: 66,935 rows × 15 columns</code></pre>
 </section>
 <section id="feature-engineering-steps" class="slide level2 smaller">
 <h2>Feature Engineering Steps</h2>
-<div id="c36756cd" class="cell" data-execution_count="16">
+<div id="b1e51433" class="cell" data-execution_count="16">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23" data-code-line-numbers="|2-3|6-8|11-13|33|35-37|39-40|42-43|"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href></a><span class="co"># Binary encode First Owner</span></span>
@@ -1792,7 +1795,7 @@ Final shape: 66,935 rows × 15 columns</code></pre>
 </section>
 <section id="chart-4-correlation-matrix" class="slide level2 smaller">
 <h2>Chart 4 — Correlation Matrix</h2>
-<div id="f73a1233" class="cell" data-execution_count="17">
+<div id="36fc8155" class="cell" data-execution_count="17">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href></a>numeric <span class="op">=</span> df.select_dtypes(include<span class="op">=</span>[np.number])</span>
@@ -1884,7 +1887,7 @@ Final shape: 66,935 rows × 15 columns</code></pre>
 </section>
 <section id="building-the-preprocessing-pipeline" class="slide level2 smaller">
 <h2>Building the Preprocessing Pipeline</h2>
-<div id="938c7937" class="cell" data-execution_count="18">
+<div id="e8c5f0a0" class="cell" data-execution_count="18">
 <details open class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25" data-code-line-numbers="|1-5|8-9|10-11|14-16|19-20|21|22|24-28|"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href></a><span class="im">from</span> sklearn.model_selection <span class="im">import</span> train_test_split</span>
@@ -2035,7 +2038,7 @@ J(\beta)=\sum_{i=1}^n\left(y_i-\sum_{j=0}^p \beta_j x_{i j}\right)^2+\lambda \su
 <section id="xgboost-optimized-parameters" class="slide level2 smaller">
 <h2>XGBoost — Optimized Parameters</h2>
 <p>Parameters were obtained via <code>RandomizedSearchCV</code> with 5-fold cross-validation (run on Google Colab T4 GPU).</p>
-<div id="d459d8b1" class="cell" data-execution_count="19">
+<div id="68879849" class="cell" data-execution_count="19">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href></a><span class="im">from</span> sklearn.linear_model <span class="im">import</span> Ridge, Lasso, LinearRegression</span>
@@ -2095,7 +2098,7 @@ MAE:  14,124 MAD  |  RMSE: 22,787 MAD  |  R²: 0.8980  |  MAPE: 16.98%</code></p
 <blockquote>
 <p>Run on Google Colab T4 GPU. Results used to set <code>optimized_params</code> above.</p>
 </blockquote>
-<div id="461871ff" class="cell" data-execution_count="20">
+<div id="549abf87" class="cell" data-execution_count="20">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href></a>param_dist <span class="op">=</span> {</span>
@@ -2125,7 +2128,7 @@ MAE:  14,124 MAD  |  RMSE: 22,787 MAD  |  R²: 0.8980  |  MAPE: 16.98%</code></p
 </section>
 <section id="all-5-models-comparison" class="slide level2 smaller">
 <h2>All 5 Models — Comparison</h2>
-<div id="51658cd0" class="cell" data-execution_count="21">
+<div id="35a801b3" class="cell" data-execution_count="21">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href></a>optimized_params_rf <span class="op">=</span> {</span>
@@ -2173,7 +2176,7 @@ MAE:  14,206 MAD  |  RMSE: 22,858 MAD  |  R²: 0.8974  |  MAPE: 16.83%</code></p
 <section id="model-comparison-metrics-table" class="slide level2 smaller">
 <h2>Model Comparison — Metrics Table</h2>
 <div style="display: flex; justify-content: center;">
-<div id="489fc1aa" class="cell" data-results="hide" data-execution_count="22">
+<div id="420398f7" class="cell" data-results="hide" data-execution_count="22">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href></a>results_df <span class="op">=</span> pd.DataFrame(results).T</span>
@@ -2205,7 +2208,7 @@ XGBoost            0.8974  14206.0  22858.0  16.83</code></pre>
 </section>
 <section id="chart-5-model-comparison-mae-rmse" class="slide level2 smaller">
 <h2>Chart 5 — Model Comparison (MAE &amp; RMSE)</h2>
-<div id="122e2ce8" class="cell" data-execution_count="23">
+<div id="67eac9c7" class="cell" data-execution_count="23">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href></a>models_list <span class="op">=</span> <span class="bu">list</span>(results.keys())</span>
@@ -2243,7 +2246,7 @@ XGBoost            0.8974  14206.0  22858.0  16.83</code></pre>
 </section>
 <section id="chart-5-cont.-mape-r²" class="slide level2 smaller">
 <h2>Chart 5 (cont.) — MAPE &amp; R²</h2>
-<div id="b8b9afd5" class="cell" data-execution_count="24">
+<div id="a7dcf852" class="cell" data-execution_count="24">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">4</span>))</span>
@@ -2280,7 +2283,7 @@ XGBoost            0.8974  14206.0  22858.0  16.83</code></pre>
 </section>
 <section id="xgboost-feature-importance" class="slide level2 smaller">
 <h2>XGBoost — Feature Importance</h2>
-<div id="47af456d" class="cell" data-execution_count="25">
+<div id="20620923" class="cell" data-execution_count="25">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href></a>ohe_feature_names <span class="op">=</span> (pipeline.named_steps[<span class="st">&#39;preprocessor&#39;</span>]</span>

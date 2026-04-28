@@ -355,7 +355,9 @@ print(f"Total unique locations after mapping: {df['Location'].nunique()}")
 
 ## Handling Price Outliers {.smaller}
 
-> The raw data has prices as low as **1 MAD** (FB Marketplace placeholders) and as high as **1.6 billion MAD**. Both ends are noise.
+> We defined a lower and upper bound. Any price outside those bounds was removed.
+
+> IQR is based on the actual distribution of the data ,not just a random cutoff we picked ourselves.
 
 ```{python}
 #| echo: true
