@@ -48,22 +48,54 @@ under the supervision of **Pr. Dafrallah & Pr. El Yadari**.
 
 We thank them for the valuable insights we gained, and we hope to keep learning from them.
 
-> *"Data-driven decisions require data-driven preparation."*
+> *"All models are wrong, but some are useful." - George Box.*
 
 Our pipeline, from start to finish:
 
 | Step | Description |
 |:---|:---|
-| 🔍 **EDA** | Understand the data before touching it |
-| 🧹 **Cleaning** | Handle missing values, outliers, encoding |
-| ⚙️ **Feature Engineering** | Create and select meaningful signals |
-| 🤖 **Modeling** | Train & compare Ridge, Lasso, Random Forest, XGBoost |
-| 📊 **Evaluation** | Metrics, visualizations, model comparison |
+| **EDA** | Understand the data before touching it |
+| **Cleaning** | Handle missing values, outliers, encoding |
+| **Feature Engineering** | Create and select meaningful signals |
+| **Modeling** | Train & compare Ridge, Lasso, Random Forest, XGBoost |
+| **Evaluation** | Metrics, visualizations, model comparison |
 
 
 # Why This Dataset?
 
 > *The Moroccan used car market: large, growing, and opaque.*
+
+---
+
+## How It All Started {.smaller}
+
+:::: {.columns}
+
+::: {.column width="55%"}
+
+It started with a late-night scroll through **Facebook Marketplace**.
+
+There it was — a **Porsche Macan S**, listed in Morocco. Matte black, quad exhausts, the full package.
+
+We clicked. The listed price? **1 MAD.**
+
+*One dirham. For a Porsche.*
+
+A placeholder price — the kind sellers throw in just to get the listing live. And it got us thinking:
+
+> *If prices on this platform range from 1 MAD to over a billion MAD, how does anyone actually know what a car is worth?*
+
+That question became this project.
+
+:::
+
+::: {.column width="45%"}
+
+![A Porsche Macan S listed on FB Marketplace Morocco](image.png){fig-align="center" width="90%"}
+
+:::
+
+::::
 
 ---
 
@@ -156,6 +188,8 @@ plt.show()
 ---
 
 ## Cleaning Strategy — Per Column {.smaller}
+
+> Each column had a different type of missing data, so each one got a different solution. 
 
 | Column | Issue | Strategy | Why |
 |:---|:---|:---|:---|
@@ -456,6 +490,39 @@ plt.show()
 
 ---
 
+## Chart 4 — Price by Condition {.smaller}
+
+```{python}
+#| echo: true
+#| fig-cap: "Condition ratings form a clear price ladder — from 'For Parts' to 'New'."
+median_price_by_condition = df.groupby('Condition')['Price'].median().reset_index()
+condition_order = median_price_by_condition.sort_values('Price')['Condition'].tolist()
+
+fig, ax = plt.subplots(figsize=(11, 6))
+sns.barplot(data=median_price_by_condition, x='Condition', y='Price',
+            hue='Condition', order=condition_order, legend=False, palette='viridis', ax=ax)
+ax.set_title('Median Price by Car Condition', fontsize=15)
+ax.set_xlabel('Condition', fontsize=12)
+ax.set_ylabel('Median Price (MAD)', fontsize=12)
+
+for p in ax.patches:
+    if hasattr(p, 'get_height') and hasattr(p, 'get_x') and hasattr(p, 'get_width'):
+        height = float(p.get_height())
+        x_center = float(p.get_x()) + float(p.get_width()) / 2.0
+        ax.annotate(
+            f"{height:,.0f} MAD",
+            (x_center, height),
+            ha='center', va='bottom', fontsize=10,
+            xytext=(0, 5), textcoords='offset points'
+        )
+plt.tight_layout()
+plt.show()
+```
+
+**Key insight:** Condition follows a near-perfect price ladder — Fair < Good < Very Good < Excellent, validating it as a strong ordinal predictor.
+
+---
+
 ## EDA Summary — Key Findings {.smaller}
 
 | Factor | Effect on Price |
@@ -576,6 +643,7 @@ plt.show()
 
 ```{python}
 #| echo: true
+#| code-line-numbers: "|8-9|10-11|14-16|19-20|21|22|24-28|"
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
@@ -639,10 +707,26 @@ print(f"Features going in: {X.shape[1]} columns")
 
 ## Why Ridge and Lasso? {.smaller}
 
-Ridge and Lasso are **regularized linear regression** models:
+Ridge and Lasso are **regularized linear regression** models — they minimize the same squared-error loss but add different penalty terms:
 
 - **Ridge (L2):** Shrinks coefficients toward zero — useful when features are correlated (e.g., Year ↔ Mileage). Keeps all features.
+
+$$
+J(\beta)=\sum_{i=1}^n\left(y_i-\sum_{j=0}^p \beta_j x_{i j}\right)^2+\lambda \sum_{j=1}^p \beta_j^2
+$$
+- $\lambda$ (Lambda): The tuning parameter that controls the strength of the penalty.
+
+- $\sum \beta_j^2$: The L2 norm (squared Euclidean norm).
+
+
 - **Lasso (L1):** Can set coefficients to exactly zero — acts as a built-in feature selector. Useful to understand which features the model ignores.
+
+$$
+J(\beta)=\sum_{i=1}^n\left(y_i-\sum_{j=0}^p \beta_j x_{i j}\right)^2+\lambda \sum_{j=1}^p\left|\beta_j\right|
+$$
+
+- $\lambda$ (Lambda): The tuning parameter.
+- $\sum |\beta_j|$: The L1 norm (Manhattan norm).
 
 Both serve as **interpretable baselines** to compare against more complex non-linear models.
 
@@ -669,7 +753,7 @@ XGBoost is a **gradient boosting** algorithm:
 - Trees are built **sequentially** — each one corrects the errors of the previous
 - Built-in **L1/L2 regularization** prevents overfitting
 - Handles **mixed feature types** natively
-- Supports **GPU acceleration** (trained on GTX 1650 Max-Q)
+- Supports **GPU acceleration** (trained on Google T4 GPU)
 - Consistently achieves **state-of-the-art results** on structured/tabular data
 - Hyperparameters tuned via **RandomizedSearchCV** with cross-validation
 
@@ -806,19 +890,16 @@ for name, model in models.items():
 
 ## Model Comparison — Metrics Table {.smaller}
 
+::: {style="display: flex; justify-content: center;"}
 ```{python}
+#| results: hide
 results_df = pd.DataFrame(results).T
 results_df.index.name = "Model"
 print(results_df.to_string())
 ```
+:::
 
-| | Linear | Ridge | Lasso | Random Forest | XGBoost |
-|---|---|---|---|---|---|
-| **R²** | ~0.74 | ~0.79 | ~0.78 | ~0.89 | **~0.91** |
-| **RMSE** | Highest | High | High | Lower | **Lowest** |
-| **Interpretability** | High | High | High | Medium | Low |
-
-> **XGBoost wins** on all performance metrics. Linear models remain useful as interpretable baselines.
+> **Random Forest wins** on all performance metrics. Linear models remain useful as interpretable baselines.
 
 ---
 
@@ -957,9 +1038,8 @@ The time spent carefully handling `Mileage`, `Fiscal Power`, and encoding `Brand
 
 ## Links & Resources {.smaller}
 
-- 📊 **Dataset:** [Mendeley Data — Moroccan Used Cars](https://data.mendeley.com/datasets/vjrbcb2rrt/2)
-- 💻 **Code:** Available on GitHub
-- 🚀 **Live Demo:** Streamlit app
+- **Dataset:** [Mendeley Data — Moroccan Used Cars](https://data.mendeley.com/datasets/vjrbcb2rrt/2)
+- **Code:** Available on GitHub
 
 # Thank You!
 
