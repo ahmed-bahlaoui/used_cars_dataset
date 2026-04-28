@@ -207,7 +207,8 @@ plt.show()
 
 ## Dropping Rows with Missing Price {.smaller}
 
-> Without a `Price`, a row is unusable — it is our target variable.
+> Why drop those 25,000 rows instead of just filling in an estimated price? 
+> - Price is the target variable, and dropping is the only sound choice here
 
 ```{python}
 #| echo: true
@@ -643,6 +644,7 @@ plt.show()
 
 ```{python}
 #| echo: true
+#| code-fold: show
 #| code-line-numbers: "|8-9|10-11|14-16|19-20|21|22|24-28|"
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer

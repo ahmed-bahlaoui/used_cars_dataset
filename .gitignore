@@ -12,6 +12,7 @@ wheels/
 # Virtual environments
 .venv
 
+# Slide files
 claude_slides_files/
 claude_slides_updated_files/
 
@@ -26,6 +27,8 @@ presentation_*
 # Raw data
 data/raw/
 
+#Images
+image.png
 preprocessing/figures/*.png
 
 **/*.quarto_ipynb
