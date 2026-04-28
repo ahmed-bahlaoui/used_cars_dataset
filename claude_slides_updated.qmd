@@ -13,6 +13,8 @@ format:
     reference-location: document
     footer: "ENSAM RABAT — INDIA/SD · 2025/2026 · Supervised by Pr.Dafrallah & Pr.El Yadari"
     logo: "logo_ensam.png"
+    width: 100%
+    height: 100%
     scrollable: true
     slide-number: true
     preview-links: auto
