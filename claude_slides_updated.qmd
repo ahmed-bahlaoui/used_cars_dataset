@@ -288,6 +288,10 @@ print(f"Missing 'Fiscal Power' after imputation: {df['Fiscal Power'].isnull().su
 ---
 
 ## Applying All Cleaning Steps {.smaller}
+- Drop any row where the car's condition is missing.
+- Fill missing categorical data, like 'Origin', with the word 'Unknown'.
+- Remove any duplicate listings or corrupted rows.
+- Fix the 'Year' column by converting it from messy text into clean numbers, throwing out any unreadable entries and filtered out any row where Brand was numeric.
 
 ```{python}
 #| code-line-numbers: "|2|5-7|10-12|14-17"
