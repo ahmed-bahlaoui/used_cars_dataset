@@ -52,32 +52,100 @@ if you don't please do install it and use the commands below to view and compile
 
 **Preview locally in the terminal (without opening a browser immediately):**
 ```bash
-quarto preview claude_slides_updated.qmd --no-browser
+quarto preview slide_deck --no-browser
 ```
 
 **Render to static HTML:**
 ```bash
-quarto render claude_slides_updated.qmd --to revealjs --output-dir docs --output index.html --self-contained
+quarto render slide_deck.qmd --to revealjs --output-dir docs --output index.html --self-contained
 ```
 
 ## Project Structure
 
+
 ```
-used-cars-morocco/
-├── data/
-│   ├── raw/                  # Original Mendeley dataset, never touched
-│   └── processed/            # Cleaned CSVs output by preprocessing
-├── notebooks/
-│   ├── notebook.ipynb
-│
-├── src/
-│   ├── preprocess.py         # Reusable cleaning functions
-│   └── train.py              # Model training + evaluation
-├── models/                   # Saved model artifacts (.pkl, .joblib)
-├── reports/
-│   └── presentation.qmd      # Your Quarto file
-├── app/                      # Your Streamlit or alternative app
-│   └── app.py
-├── requirements.txt
-└── README.md
+used_cars_dataset
+├─ app
+│  └─ app.py
+├─ cars_dataframe.csv
+├─ cleaned_data.csv
+├─ cleaned_data_for_real.csv
+├─ data
+│  └─ processed
+│     ├─ cleaned_data.csv
+│     ├─ cleaned_data_final.csv
+│     └─ cleaned_data_for_real.csv
+├─ docs
+│  └─ index.html
+├─ evaluation
+├─ figures
+│  ├─ fig_01_missing_values_by_column.png
+│  ├─ fig_02_price_distribution_up_to_95th_percentile.png
+│  ├─ fig_03_brands_by_median_price_min_100_listings.png
+│  ├─ fig_04_median_price_by_year.png
+│  ├─ fig_05_median_price_by_transmission_type.png
+│  ├─ fig_06_median_price_by_car_condition.png
+│  ├─ fig_07_top_5_most_listed_cars.png
+│  ├─ fig_08_old_cars_vs_new_cars_in_the_market.png
+│  ├─ fig_09_gearbox_type_distribution.png
+│  ├─ fig_10_fuel_type_distribution.png
+│  ├─ fig_11_top_10_locations_by_number_of_listings.png
+│  ├─ fig_12.png
+│  ├─ fig_13_median_price_by_car_origin.png
+│  ├─ fig_14_median_price_by_first_owner_status.png
+│  ├─ fig_15_top_20_equipment_features.png
+│  ├─ fig_16_mean_price_vs_number_of_features.png
+│  ├─ fig_16_mean_price_vs_number_of_features_binned.png
+│  ├─ fig_16_price_vs_number_of_equipment_features.png
+│  ├─ fig_17.png
+│  ├─ fig_17_correlation_matrix.png
+│  └─ model_comparison.png
+├─ functions
+├─ logo_ensam.png
+├─ models
+│  ├─ car_price_model.json
+│  ├─ gbr_pipeline.joblib
+│  └─ preprocessor.joblib
+├─ Moroccan Used Car Price Prediction.pdf
+├─ old.qmd
+├─ preprocessing
+│  └─ notebooks
+│     ├─ car_price_model.json
+│     ├─ cleaned_data_for_real.csv
+│     ├─ cleaned_data_ready_for_ml.csv
+│     ├─ figures
+│     │  ├─ fig_01_missing_values_by_column.png
+│     │  ├─ fig_02_price_distribution_up_to_95th_percentile.png
+│     │  ├─ fig_03_brands_by_median_price_min_100_listings.png
+│     │  ├─ fig_04_median_price_by_year.png
+│     │  ├─ fig_05_median_price_by_transmission_type.png
+│     │  ├─ fig_06_median_price_by_car_condition.png
+│     │  ├─ fig_07_top_5_most_listed_cars.png
+│     │  ├─ fig_08_old_cars_vs_new_cars_in_the_market.png
+│     │  ├─ fig_09_gearbox_type_distribution.png
+│     │  ├─ fig_10_fuel_type_distribution.png
+│     │  ├─ fig_11_top_10_locations_by_number_of_listings.png
+│     │  ├─ fig_12.png
+│     │  ├─ fig_13_median_price_by_car_origin.png
+│     │  ├─ fig_14_median_price_by_first_owner_status.png
+│     │  ├─ fig_15_top_20_equipment_features.png
+│     │  ├─ fig_16_mean_price_vs_number_of_features.png
+│     │  └─ fig_17_correlation_matrix.png
+│     ├─ notebook.ipynb
+│     └─ train_model.ipynb
+├─ presentation.html
+├─ pyproject.toml
+├─ README.md
+├─ reports
+│  └─ index.html
+├─ slide-deck.qmd
+├─ slides.html
+├─ slides.qmd
+├─ slide_deck.qmd
+├─ slide_deck_to_pdf.qmd
+├─ src
+│  ├─ preprocess.py
+│  ├─ train.py
+│  └─ train_xgboost.py
+└─ uv.lock
 ```

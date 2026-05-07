@@ -5,9 +5,11 @@ build/
 dist/
 wheels/
 *.egg-info
-
+.mypy_cache/
 #log files
 *.log
+
+.python-version
 
 # Virtual environments
 .venv
