@@ -34,7 +34,7 @@ image.png
 preprocessing/figures/*.png
 
 **/*.quarto_ipynb
-*.txt
+
 
 .ipynb_checkpoints
 
